@@ -1,0 +1,15 @@
+D:\Projects\FoodEmolite\BE\food-emolite\src\FoodEmolite.Domain\bin\Debug\net8.0\FoodEmolite.Domain.deps.json
+D:\Projects\FoodEmolite\BE\food-emolite\src\FoodEmolite.Domain\bin\Debug\net8.0\FoodEmolite.Domain.dll
+D:\Projects\FoodEmolite\BE\food-emolite\src\FoodEmolite.Domain\bin\Debug\net8.0\FoodEmolite.Domain.pdb
+D:\Projects\FoodEmolite\BE\food-emolite\src\FoodEmolite.Domain\bin\Debug\net8.0\FoodEmolite.Shared.dll
+D:\Projects\FoodEmolite\BE\food-emolite\src\FoodEmolite.Domain\bin\Debug\net8.0\FoodEmolite.Shared.pdb
+D:\Projects\FoodEmolite\BE\food-emolite\src\FoodEmolite.Domain\obj\Debug\net8.0\FoodEmolite.Domain.csproj.AssemblyReference.cache
+D:\Projects\FoodEmolite\BE\food-emolite\src\FoodEmolite.Domain\obj\Debug\net8.0\FoodEmolite.Domain.GeneratedMSBuildEditorConfig.editorconfig
+D:\Projects\FoodEmolite\BE\food-emolite\src\FoodEmolite.Domain\obj\Debug\net8.0\FoodEmolite.Domain.AssemblyInfoInputs.cache
+D:\Projects\FoodEmolite\BE\food-emolite\src\FoodEmolite.Domain\obj\Debug\net8.0\FoodEmolite.Domain.AssemblyInfo.cs
+D:\Projects\FoodEmolite\BE\food-emolite\src\FoodEmolite.Domain\obj\Debug\net8.0\FoodEmolite.Domain.csproj.CoreCompileInputs.cache
+D:\Projects\FoodEmolite\BE\food-emolite\src\FoodEmolite.Domain\obj\Debug\net8.0\FoodEmol.1054DBCF.Up2Date
+D:\Projects\FoodEmolite\BE\food-emolite\src\FoodEmolite.Domain\obj\Debug\net8.0\FoodEmolite.Domain.dll
+D:\Projects\FoodEmolite\BE\food-emolite\src\FoodEmolite.Domain\obj\Debug\net8.0\refint\FoodEmolite.Domain.dll
+D:\Projects\FoodEmolite\BE\food-emolite\src\FoodEmolite.Domain\obj\Debug\net8.0\FoodEmolite.Domain.pdb
+D:\Projects\FoodEmolite\BE\food-emolite\src\FoodEmolite.Domain\obj\Debug\net8.0\ref\FoodEmolite.Domain.dll
