@@ -10,12 +10,12 @@ public interface IStoreService
         CreateStoreRequestDto request);
 
     Task<BaseResponse<string>> UpdateAsync(
-        string refCode,
+        long id,
         long currentUserId,
         UpdateStoreRequestDto request);
 
     Task<BaseResponse<string>> DeleteAsync(
-        string refCode,
+        long id,
         long currentUserId);
 
     Task<BaseTableResponse<StoreResponseDto>> GetAllAsync(
@@ -27,5 +27,5 @@ public interface IStoreService
         int page,
         int pageSize);
 
-    Task<BaseResponse<StoreResponseDto>> GetDetailAsync(string refCode);
+    Task<BaseResponse<StoreResponseDto>> GetDetailAsync(long id);
 }

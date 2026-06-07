@@ -30,7 +30,4 @@ public class Store : BaseEntity
 
     [Column("is_deleted")]
     public bool IsDeleted { get; set; } = false;
-
-    [JsonIgnore]
-    public virtual ICollection<StoreFood>? StoreFoods { get; set; }
 }

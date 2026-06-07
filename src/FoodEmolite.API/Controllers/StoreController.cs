@@ -27,24 +27,24 @@ public class StoreController : BaseApiController
         return Ok(result);
     }
 
-    [HttpPut("{refCode}")]
+    [HttpPut("{id}")]
     public async Task<IActionResult> Update(
-        string refCode,
+        long id,
         [FromForm] UpdateStoreRequestDto request)
     {
         var result = await _storeService.UpdateAsync(
-            refCode,
+            id,
             CurrentUserId!.Value,
             request);
 
         return Ok(result);
     }
 
-    [HttpDelete("{refCode}")]
-    public async Task<IActionResult> Delete(string refCode)
+    [HttpDelete("{id}")]
+    public async Task<IActionResult> Delete(long id)
     {
         var result = await _storeService.DeleteAsync(
-            refCode,
+            id,
             CurrentUserId!.Value);
 
         return Ok(result);
@@ -73,10 +73,10 @@ public class StoreController : BaseApiController
         return Ok(result);
     }
 
-    [HttpGet("{refCode}")]
-    public async Task<IActionResult> GetDetail(string refCode)
+    [HttpGet("{id}")]
+    public async Task<IActionResult> GetDetail(long id)
     {
-        var result = await _storeService.GetDetailAsync(refCode);
+        var result = await _storeService.GetDetailAsync(id);
         return Ok(result);
     }
 }

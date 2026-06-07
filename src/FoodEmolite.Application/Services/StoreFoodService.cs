@@ -21,7 +21,7 @@ public class StoreFoodService : IStoreFoodService
         _cloudinaryService = cloudinaryService;
     }
 
-    public async Task<BaseResponse<string>> CreateAsync(CreateStoreFoodRequestDto request)
+    public async Task<BaseResponse<string>> CreateAsync(string refCode,CreateStoreFoodRequestDto request)
     {
         var repoStore = _unitOfWork.GetRepository<Store>();
         var repoStoreFood = _unitOfWork.GetRepository<StoreFood>();
@@ -48,7 +48,7 @@ public class StoreFoodService : IStoreFoodService
 
         var storeFood = new StoreFood
         {
-            RefCode = Guid.NewGuid().ToString().ToUpper(),
+            RefCode = refCode,
             StoreRefCode = request.StoreRefCode,
             FoodName = request.FoodName,
             ThumbnailUrl = thumbnailFileRefCode,
@@ -56,7 +56,8 @@ public class StoreFoodService : IStoreFoodService
             Price = request.Price,
             Quantity = request.Quantity,
             IsAvailable = true,
-            IsDeleted = false
+            IsDeleted = false,
+            CreatedAt = DateTime.Now
         };
 
         await repoStoreFood.AddAsync(storeFood);
@@ -65,14 +66,12 @@ public class StoreFoodService : IStoreFoodService
         return BaseResponse<string>.Success("Create store food successfully");
     }
 
-    public async Task<BaseResponse<string>> UpdateAsync(
-        string refCode,
-        UpdateStoreFoodRequestDto request)
+    public async Task<BaseResponse<string>> UpdateAsync(long id, UpdateStoreFoodRequestDto request)
     {
         var repoStoreFood = _unitOfWork.GetRepository<StoreFood>();
 
         var storeFood = await repoStoreFood.FirstOrDefaultAsync(x =>
-            x.RefCode == refCode &&
+            x.Id == id &&
             !x.IsDeleted);
 
         if (storeFood is null)
@@ -88,10 +87,6 @@ public class StoreFoodService : IStoreFoodService
 
             storeFood.ThumbnailUrl = uploadResult.Data;
         }
-        else if (!string.IsNullOrWhiteSpace(request.ThumbnailUrl))
-        {
-            storeFood.ThumbnailUrl = request.ThumbnailUrl;
-        }
 
         storeFood.FoodName = request.FoodName;
         storeFood.Description = request.Description;
@@ -105,12 +100,12 @@ public class StoreFoodService : IStoreFoodService
         return BaseResponse<string>.Success("Update store food successfully");
     }
 
-    public async Task<BaseResponse<string>> DeleteAsync(string refCode)
+    public async Task<BaseResponse<string>> DeleteAsync(long id)
     {
         var repoStoreFood = _unitOfWork.GetRepository<StoreFood>();
 
         var storeFood = await repoStoreFood.FirstOrDefaultAsync(x =>
-            x.RefCode == refCode &&
+            x.Id == id &&
             !x.IsDeleted);
 
         if (storeFood is null)
@@ -217,13 +212,12 @@ public class StoreFoodService : IStoreFoodService
         };
     }
 
-    public async Task<BaseResponse<StoreFoodResponseDto>> GetDetailAsync(
-        string refCode)
+    public async Task<BaseResponse<StoreFoodResponseDto>> GetDetailAsync(long id)
     {
         var repoStoreFood = _unitOfWork.GetRepository<StoreFood>();
 
         var storeFood = await repoStoreFood.FirstOrDefaultAsync(x =>
-            x.RefCode == refCode &&
+            x.Id == id &&
             !x.IsDeleted);
 
         if (storeFood is null)

@@ -10,13 +10,5 @@ public class BankAccountConfiguration
     public void Configure(
         EntityTypeBuilder<BankAccount> builder)
     {
-        builder
-            .HasIndex(x => x.RefCode)
-            .IsUnique();
-
-        builder
-            .HasOne(x => x.Account)
-            .WithMany()
-            .HasForeignKey(x => x.AccountId);
     }
 }

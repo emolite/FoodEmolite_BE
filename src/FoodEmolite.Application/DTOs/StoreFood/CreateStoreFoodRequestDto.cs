@@ -15,8 +15,6 @@ namespace FoodEmolite.Application.DTOs.StoreFood
 
         public IFormFile? ThumbnailFile { get; set; }
 
-        public string? ThumbnailUrl { get; set; }
-
         public string? Description { get; set; }
 
         public decimal Price { get; set; }

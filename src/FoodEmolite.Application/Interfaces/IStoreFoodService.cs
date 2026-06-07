@@ -5,13 +5,13 @@ namespace FoodEmolite.Application.Interfaces;
 
 public interface IStoreFoodService
 {
-    Task<BaseResponse<string>> CreateAsync(CreateStoreFoodRequestDto request);
+    Task<BaseResponse<string>> CreateAsync(string refCode, CreateStoreFoodRequestDto request);
 
     Task<BaseResponse<string>> UpdateAsync(
-        string refCode,
+        long id,
         UpdateStoreFoodRequestDto request);
 
-    Task<BaseResponse<string>> DeleteAsync(string refCode);
+    Task<BaseResponse<string>> DeleteAsync(long id);
 
     Task<BaseTableResponse<StoreFoodResponseDto>> GetAllAsync(
         int page,
@@ -22,5 +22,5 @@ public interface IStoreFoodService
         int page,
         int pageSize);
 
-    Task<BaseResponse<StoreFoodResponseDto>> GetDetailAsync(string refCode);
+    Task<BaseResponse<StoreFoodResponseDto>> GetDetailAsync(long id);
 }

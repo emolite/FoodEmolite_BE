@@ -8,14 +8,5 @@ public class AccountProfileConfiguration : IEntityTypeConfiguration<AccountProfi
 {
     public void Configure(EntityTypeBuilder<AccountProfile> builder)
     {
-        builder
-            .HasIndex(x => x.RefCode)
-            .IsUnique();
-
-        builder
-            .HasOne(x => x.Account)
-            .WithOne()
-            .HasForeignKey<AccountProfile>(
-                x => x.AccountId);
     }
 }

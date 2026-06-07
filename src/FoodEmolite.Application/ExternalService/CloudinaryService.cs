@@ -51,7 +51,7 @@ namespace FoodEmolite.Application.ExternalService
 
             response.Data = result.PublicId;
 
-            return BaseResponse<string>.Success("Created success");
+            return BaseResponse<string>.Success(result.PublicId, "Created success");
         }
 
         public async Task<BaseResponse<string>> UploadProductImageAsync(IFormFile file)
@@ -80,7 +80,7 @@ namespace FoodEmolite.Application.ExternalService
 
             response.Data = result.PublicId;
 
-            return BaseResponse<string>.Success("Created success");
+            return BaseResponse<string>.Success(result.PublicId, "Created success");
         }
 
         public async Task<BaseResponse<string>> UploadStoreImageAsync(IFormFile file)

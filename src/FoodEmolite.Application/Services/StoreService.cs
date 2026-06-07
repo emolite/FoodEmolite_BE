@@ -58,12 +58,12 @@ public class StoreService : IStoreService
         return BaseResponse<string>.Success("Create store successfully");
     }
 
-    public async Task<BaseResponse<string>> UpdateAsync(string refCode, long currentUserId, UpdateStoreRequestDto request)
+    public async Task<BaseResponse<string>> UpdateAsync(long id, long currentUserId, UpdateStoreRequestDto request)
     {
         var repoStore = _unitOfWork.GetRepository<Store>();
 
         var store = await repoStore.FirstOrDefaultAsync(x =>
-            x.RefCode == refCode &&
+            x.Id == id &&
             !x.IsDeleted);
 
         if (store is null)
@@ -78,10 +78,6 @@ public class StoreService : IStoreService
                 return BaseResponse<string>.Fail(uploadResult.Message);
 
             store.ThumbnailUrl = uploadResult.Data;
-        }
-        else if (!string.IsNullOrWhiteSpace(request.ThumbnailFileRefCode))
-        {
-            store.ThumbnailUrl = request.ThumbnailFileRefCode;
         }
 
         store.StoreName = request.StoreName;
@@ -98,13 +94,12 @@ public class StoreService : IStoreService
         return BaseResponse<string>.Success("Update store successfully");
     }
 
-    public async Task<BaseResponse<string>> DeleteAsync(string refCode, long currentUserId)
+    public async Task<BaseResponse<string>> DeleteAsync(long id, long currentUserId)
     {
         var repoStore = _unitOfWork.GetRepository<Store>();
 
         var store = await repoStore.FirstOrDefaultAsync(x =>
-            x.RefCode == refCode &&
-            !x.IsDeleted);
+            x.Id == id );
 
         if (store is null)
             return BaseResponse<string>.Fail("Store not found");
@@ -221,13 +216,12 @@ public class StoreService : IStoreService
         };
     }
 
-    public async Task<BaseResponse<StoreResponseDto>> GetDetailAsync(string refCode)
+    public async Task<BaseResponse<StoreResponseDto>> GetDetailAsync(long id)
     {
         var repoStore = _unitOfWork.GetRepository<Store>();
 
         var store = await repoStore.FirstOrDefaultAsync(x =>
-            x.RefCode == refCode &&
-            !x.IsDeleted);
+            x.Id == id);
 
         if (store is null)
             return BaseResponse<StoreResponseDto>.Fail("Store not found");
@@ -244,7 +238,8 @@ public class StoreService : IStoreService
             PhoneNumber = store.PhoneNumber,
             Address = store.Address,
             Description = store.Description,
-            IsActive = store.IsActive
+            IsActive = store.IsActive,
+            CreatedAt = store.CreatedAt
         });
     }
 }

@@ -30,8 +30,4 @@ public class StoreFood : BaseEntity
 
     [Column("is_deleted")]
     public bool IsDeleted { get; set; } = false;
-
-    [ForeignKey(nameof(StoreRefCode))]
-    [JsonIgnore]
-    public virtual Store? Store { get; set; }
 }
