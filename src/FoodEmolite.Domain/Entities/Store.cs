@@ -8,13 +8,13 @@ namespace FoodEmolite.Domain.Entities;
 public class Store : BaseEntity
 {
     [Column("owner_account_id")]
-    public long OwnerAccountId { get; set; }
+    public long? OwnerAccountId { get; set; }
 
     [Column("store_name")]
     public string StoreName { get; set; }
 
-    [Column("thumbnail_file_ref_code")]
-    public string? ThumbnailFileRefCode { get; set; }
+    [Column("thumbnail_url")]
+    public string? ThumbnailUrl { get; set; }
 
     [Column("phone_number")]
     public string? PhoneNumber { get; set; }

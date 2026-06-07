@@ -82,5 +82,28 @@ namespace FoodEmolite.Application.ExternalService
 
             return BaseResponse<string>.Success("Created success");
         }
+
+        public async Task<BaseResponse<string>> UploadStoreImageAsync(IFormFile file)
+        {
+            await using var stream = file.OpenReadStream();
+
+            var uploadParams = new ImageUploadParams
+            {
+                File = new FileDescription(file.FileName, stream),
+                Folder = "FOOD_PROJECT/IMAGES/STORES"
+            };
+
+            var result = await _imageCloudinary.UploadAsync(uploadParams);
+
+            if (result.Error != null)
+                throw new Exception(result.Error.Message);
+
+            if (result.SecureUrl == null)
+                throw new Exception("Upload failed. SecureUrl is null.");
+
+            return BaseResponse<string>.Success(
+                result.PublicId,
+                "Created success");
+        }
     }
 }

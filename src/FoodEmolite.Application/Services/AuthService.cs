@@ -119,7 +119,8 @@ public class AuthService : IAuthService
                 Id = account.Id,
                 RefCode = account.RefCode,
                 Username = account.Username,
-                Email = account.Email
+                Email = account.Email,
+                Role = account.Role
             });
     }
 }

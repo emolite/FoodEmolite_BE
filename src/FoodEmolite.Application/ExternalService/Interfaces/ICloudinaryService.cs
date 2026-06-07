@@ -8,5 +8,6 @@ namespace FoodEmolite.Application.ExternalService.Interfaces
         string BuildImageUrl(string publicId);
         Task<BaseResponse<string>> UploadProfileImageAsync(IFormFile file);
         Task<BaseResponse<string>> UploadProductImageAsync(IFormFile file);
+        Task<BaseResponse<string>> UploadStoreImageAsync(IFormFile file);
     }
 }

@@ -39,5 +39,16 @@ namespace FoodEmolite.API.Controllers
 
             return Ok(result);
         }
+
+        [HttpPost("upload-store-image")]
+        public async Task<IActionResult> UploadStoreImage(IFormFile file)
+        {
+            if (file == null || file.Length == 0)
+                return BadRequest("File is required");
+
+            var result = await _cloudinaryService.UploadStoreImageAsync(file);
+
+            return Ok(result);
+        }
     }
 }
