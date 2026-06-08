@@ -111,6 +111,50 @@ public class ProfileService : IProfileService
             });
     }
 
+    public async Task<BaseResponse<StorePaymentInfoResponseDto>> GetStorePaymentInfoAsync(string storeRefCode, decimal amount)
+    {
+        var repoStore = _unitOfWork.GetRepository<Store>();
+        var repoBank = _unitOfWork.GetRepository<BankAccount>();
+
+        var store = await repoStore.FirstOrDefaultAsync(x =>
+            x.RefCode == storeRefCode &&
+            x.IsActive &&
+            !x.IsDeleted);
+
+        if (store is null)
+            return BaseResponse<StorePaymentInfoResponseDto>.Fail("Store not found");
+
+        var bankAccount = await repoBank.FirstOrDefaultAsync(x =>
+            x.AccountId == store.OwnerAccountId &&
+            x.IsActive &&
+            x.IsDefault);
+
+        if (bankAccount is null)
+            return BaseResponse<StorePaymentInfoResponseDto>.Fail("Bank account not found");
+
+        var accountName = Uri.EscapeDataString(bankAccount.AccountHolderName ?? "");
+        var addInfo = Uri.EscapeDataString($"Thanh toan don hang {store.StoreName}");
+        var amountValue = Math.Round(amount, 0);
+
+        var vietQrUrl =
+            $"https://img.vietqr.io/image/{bankAccount.BankCode}-{bankAccount.AccountNumber}-compact2.png?amount={amountValue}&addInfo={addInfo}&accountName={accountName}";
+
+        return BaseResponse<StorePaymentInfoResponseDto>.Success(
+            new StorePaymentInfoResponseDto
+            {
+                StoreId = store.Id,
+                StoreRefCode = store.RefCode,
+                StoreName = store.StoreName,
+                BankAccountId = bankAccount.Id,
+                BankName = bankAccount.BankName,
+                BankCode = bankAccount.BankCode,
+                AccountNumber = bankAccount.AccountNumber,
+                AccountHolderName = bankAccount.AccountHolderName,
+                Amount = amount,
+                VietQrUrl = vietQrUrl
+            });
+    }
+
     public async Task<BaseResponse<AccountProfileDto>> CreateAccountProfileAsync(long currentUserId, string currentUserRefCode, CreateAccountProfileRequestDto request)
     {
         var repoProfile = _unitOfWork.GetRepository<AccountProfile>();

@@ -24,6 +24,16 @@ namespace FoodEmolite.API.Controllers
             return Ok(result);
         }
 
+        [HttpGet("store-payment/{storeRefCode}")]
+        public async Task<IActionResult> GetStorePaymentInfo(string storeRefCode, [FromQuery] decimal amount)
+        {
+            var result = await _profileService.GetStorePaymentInfoAsync(
+                storeRefCode,
+                amount);
+
+            return Ok(result);
+        }
+
         [HttpPost("account-profile")]
         public async Task<IActionResult> CreateAccountProfile([FromForm] CreateAccountProfileRequestDto request)
         {

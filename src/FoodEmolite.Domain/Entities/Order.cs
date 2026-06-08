@@ -24,15 +24,4 @@ public class Order : BaseEntity
 
     [Column("note")]
     public string? Note { get; set; }
-
-    [ForeignKey(nameof(CustomerAccountId))]
-    [JsonIgnore]
-    public virtual Account? CustomerAccount { get; set; }
-
-    [ForeignKey(nameof(StoreRefCode))]
-    [JsonIgnore]
-    public virtual Store? Store { get; set; }
-
-    [JsonIgnore]
-    public virtual ICollection<OrderItem>? OrderItems { get; set; }
 }

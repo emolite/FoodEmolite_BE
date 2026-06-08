@@ -119,19 +119,34 @@ public class StoreFoodService : IStoreFoodService
         return BaseResponse<string>.Success("Delete store food successfully");
     }
 
-    public async Task<BaseTableResponse<StoreFoodResponseDto>> GetAllAsync(
-        int page,
-        int pageSize)
+    public async Task<BaseTableResponse<StoreFoodResponseDto>> GetAllAsync(int page, int pageSize)
     {
         var repoStoreFood = _unitOfWork.GetRepository<StoreFood>();
+        var repoStore = _unitOfWork.GetRepository<Store>();
 
         page = page <= 0 ? 1 : page;
         pageSize = pageSize <= 0 ? 10 : pageSize;
 
-        var query = repoStoreFood
-            .Query()
-            .AsNoTracking()
-            .Where(x => !x.IsDeleted);
+        var query =
+            from storeFood in repoStoreFood.Query().AsNoTracking()
+            join store in repoStore.Query().AsNoTracking()
+                on storeFood.StoreRefCode equals store.RefCode
+            where !storeFood.IsDeleted
+            select new StoreFoodResponseDto
+            {
+                Id = storeFood.Id,
+                RefCode = storeFood.RefCode,
+                StoreRefCode = storeFood.StoreRefCode,
+                StoreName = store.StoreName,
+                FoodName = storeFood.FoodName,
+                ThumbnailUrl = !string.IsNullOrWhiteSpace(storeFood.ThumbnailUrl)
+                    ? _cloudinaryService.BuildImageUrl(storeFood.ThumbnailUrl)
+                    : null,
+                Description = storeFood.Description,
+                Price = storeFood.Price,
+                Quantity = storeFood.Quantity,
+                IsAvailable = storeFood.IsAvailable
+            };
 
         var totalRecords = await query.CountAsync();
 
@@ -139,20 +154,6 @@ public class StoreFoodService : IStoreFoodService
             .OrderByDescending(x => x.Id)
             .Skip((page - 1) * pageSize)
             .Take(pageSize)
-            .Select(x => new StoreFoodResponseDto
-            {
-                Id = x.Id,
-                RefCode = x.RefCode,
-                StoreRefCode = x.StoreRefCode,
-                FoodName = x.FoodName,
-                ThumbnailUrl = !string.IsNullOrWhiteSpace(x.ThumbnailUrl)
-                    ? _cloudinaryService.BuildImageUrl(x.ThumbnailUrl)
-                    : null,
-                Description = x.Description,
-                Price = x.Price,
-                Quantity = x.Quantity,
-                IsAvailable = x.IsAvailable
-            })
             .ToListAsync();
 
         return new BaseTableResponse<StoreFoodResponseDto>

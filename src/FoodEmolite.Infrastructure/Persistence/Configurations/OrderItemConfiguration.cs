@@ -10,19 +10,5 @@ public class OrderItemConfiguration
     public void Configure(
         EntityTypeBuilder<OrderItem> builder)
     {
-        builder
-            .HasIndex(x => x.RefCode)
-            .IsUnique();
-
-        builder
-            .HasOne(x => x.Order)
-            .WithMany(x => x.OrderItems)
-            .HasForeignKey(x => x.OrderId);
-
-        builder
-            .HasOne(x => x.StoreFood)
-            .WithMany()
-            .HasForeignKey(x => x.FoodRefCode)
-            .HasPrincipalKey(x => x.RefCode);
     }
 }

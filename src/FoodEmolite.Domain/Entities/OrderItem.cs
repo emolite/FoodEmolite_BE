@@ -10,8 +10,8 @@ public class OrderItem : BaseEntity
     [Column("order_id")]
     public long OrderId { get; set; }
 
-    [Column("food_ref_code")]
-    public string FoodRefCode { get; set; }
+    [Column("store_food_id")]
+    public long StoreFoodId { get; set; }
 
     [Column("quantity")]
     public int Quantity { get; set; }
@@ -21,12 +21,4 @@ public class OrderItem : BaseEntity
 
     [Column("total_price")]
     public decimal TotalPrice { get; set; }
-
-    [ForeignKey(nameof(OrderId))]
-    [JsonIgnore]
-    public virtual Order? Order { get; set; }
-
-    [ForeignKey(nameof(FoodRefCode))]
-    [JsonIgnore]
-    public virtual StoreFood? StoreFood { get; set; }
 }

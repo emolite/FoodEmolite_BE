@@ -1,0 +1,74 @@
+﻿using FoodEmolite.Application.DTOs.Order;
+using FoodEmolite.Application.Interfaces;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+
+namespace FoodEmolite.API.Controllers;
+
+[ApiController]
+[Authorize]
+[Route("api/orders")]
+public class OrderController : BaseApiController
+{
+    private readonly IOrderService _orderService;
+
+    public OrderController(IOrderService orderService)
+    {
+        _orderService = orderService;
+    }
+
+    [HttpPost]
+    public async Task<IActionResult> Create([FromBody] CreateOrderRequestDto request)
+    {
+        var result = await _orderService.CreateAsync(CurrentUserId!.Value, CurrentUserRefCode , request);
+
+        return Ok(result);
+    }
+
+    [HttpGet("my")]
+    public async Task<IActionResult> GetMyOrders(
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 10)
+    {
+        var result = await _orderService.GetMyOrdersAsync(
+            CurrentUserId!.Value,
+            page,
+            pageSize);
+
+        return Ok(result);
+    }
+
+    [HttpGet("{id}")]
+    public async Task<IActionResult> GetDetail(long id)
+    {
+        var result = await _orderService.GetDetailAsync(
+            id,
+            CurrentUserId!.Value);
+
+        return Ok(result);
+    }
+
+    [HttpGet("store/{storeRefCode}")]
+    public async Task<IActionResult> GetByStoreRefCode(string storeRefCode, [FromQuery] int page = 1, [FromQuery] int pageSize = 10)
+    {
+        var result = await _orderService.GetByStoreRefCodeAsync(
+            storeRefCode,
+            page,
+            pageSize);
+
+        return Ok(result);
+    }
+
+    [HttpPut("{id}/status")]
+    public async Task<IActionResult> UpdateStatus(
+        long id,
+        [FromBody] UpdateOrderStatusRequestDto request)
+    {
+        var result = await _orderService.UpdateStatusAsync(
+            id,
+            CurrentUserId!.Value, CurrentUserRefCode,
+            request);
+
+        return Ok(result);
+    }
+}

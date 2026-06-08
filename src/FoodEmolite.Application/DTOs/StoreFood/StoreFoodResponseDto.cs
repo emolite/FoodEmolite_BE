@@ -14,6 +14,8 @@ namespace FoodEmolite.Application.DTOs.StoreFood
 
         public string StoreRefCode { get; set; }
 
+        public string StoreName { get; set; }
+
         public string FoodName { get; set; }
 
         public string? ThumbnailUrl { get; set; }
