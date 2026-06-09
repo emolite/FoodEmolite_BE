@@ -1,14 +1,10 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
-namespace FoodEmolite.Application.DTOs.Order
+﻿namespace FoodEmolite.Application.DTOs.Order
 {
     public class OrderResponseDto
     {
         public long Id { get; set; }
+
+        public string OrderCode { get; set; }
 
         public string RefCode { get; set; }
 
@@ -26,7 +22,7 @@ namespace FoodEmolite.Application.DTOs.Order
 
         public DateTime CreatedAt { get; set; }
 
-        public List<OrderItemResponseDto> Items { get; set; }
+        public List<OrderItemResponseDto> Items { get; set; } = new();
     }
 
     public class OrderItemResponseDto
@@ -44,5 +40,24 @@ namespace FoodEmolite.Application.DTOs.Order
         public decimal UnitPrice { get; set; }
 
         public decimal TotalPrice { get; set; }
+
+        public List<OrderItemOptionResponseDto> Options { get; set; } = new();
+    }
+
+    public class OrderItemOptionResponseDto
+    {
+        public long Id { get; set; }
+
+        public long OrderItemId { get; set; }
+
+        public long? OptionGroupId { get; set; }
+
+        public string OptionGroupName { get; set; }
+
+        public long? OptionId { get; set; }
+
+        public string OptionName { get; set; }
+
+        public decimal AdditionalPrice { get; set; }
     }
 }

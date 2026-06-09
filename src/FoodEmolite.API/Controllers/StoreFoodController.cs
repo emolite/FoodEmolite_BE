@@ -27,7 +27,7 @@ public class StoreFoodController : BaseApiController
     [HttpPut("{id}")]
     public async Task<IActionResult> Update(long id, UpdateStoreFoodRequestDto request)
     {
-        var result = await _storeFoodService.UpdateAsync(id, request);
+        var result = await _storeFoodService.UpdateAsync(CurrentUserRefCode, id, request);
         return Ok(result);
     }
 

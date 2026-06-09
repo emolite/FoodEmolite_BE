@@ -7,9 +7,7 @@ public interface IStoreFoodService
 {
     Task<BaseResponse<string>> CreateAsync(string refCode, CreateStoreFoodRequestDto request);
 
-    Task<BaseResponse<string>> UpdateAsync(
-        long id,
-        UpdateStoreFoodRequestDto request);
+    Task<BaseResponse<string>> UpdateAsync(string refCode, long id, UpdateStoreFoodRequestDto request);
 
     Task<BaseResponse<string>> DeleteAsync(long id);
 

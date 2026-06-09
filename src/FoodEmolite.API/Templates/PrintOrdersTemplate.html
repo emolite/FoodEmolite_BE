@@ -1,0 +1,152 @@
+﻿<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8" />
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: #f5f5f5;
+            color: #222;
+            margin: 0;
+            padding: 24px;
+            font-size: 13px;
+        }
+
+        .page-title {
+            font-size: 22px;
+            font-weight: 700;
+            margin-bottom: 4px;
+        }
+
+        .print-time {
+            color: #666;
+            margin-bottom: 20px;
+        }
+
+        .order-card {
+            background: #fff;
+            border-radius: 12px;
+            padding: 18px;
+            margin-bottom: 18px;
+            border: 1px solid #e5e5e5;
+            page-break-inside: avoid;
+        }
+
+        .order-header {
+            display: flex;
+            justify-content: space-between;
+            border-bottom: 1px solid #eee;
+            padding-bottom: 12px;
+            margin-bottom: 14px;
+        }
+
+        .order-code {
+            font-size: 16px;
+            font-weight: 700;
+        }
+
+        .customer-name {
+            font-size: 15px;
+            font-weight: 700;
+            margin-top: 8px;
+        }
+
+        .muted {
+            color: #666;
+            margin-top: 3px;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 999px;
+            font-size: 12px;
+            font-weight: 600;
+            margin-left: 4px;
+        }
+
+        .badge-paid {
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        .badge-unpaid {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .badge-confirmed {
+            background: #dbeafe;
+            color: #1d4ed8;
+        }
+
+        .badge-pending {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .item {
+            padding: 12px 0;
+            border-bottom: 1px solid #f0f0f0;
+        }
+
+        .item:last-child {
+            border-bottom: none;
+        }
+
+        .item-main {
+            display: flex;
+            justify-content: space-between;
+            gap: 16px;
+        }
+
+        .item-name {
+            font-weight: 700;
+            font-size: 14px;
+        }
+
+        .item-qty {
+            color: #444;
+            margin-top: 4px;
+        }
+
+        .item-price {
+            text-align: right;
+            white-space: nowrap;
+        }
+
+        .option-list {
+            margin-top: 8px;
+            margin-left: 14px;
+            color: #555;
+        }
+
+        .option {
+            margin-top: 3px;
+        }
+
+        .note {
+            margin-top: 12px;
+            background: #fff7ed;
+            border: 1px solid #fed7aa;
+            padding: 10px;
+            border-radius: 8px;
+        }
+
+        .order-total {
+            margin-top: 14px;
+            padding-top: 12px;
+            border-top: 1px solid #eee;
+            text-align: right;
+            font-size: 16px;
+            font-weight: 700;
+        }
+    </style>
+</head>
+<body>
+    <div class="page-title">Danh sách đơn hàng</div>
+    <div class="print-time">Ngày in: {{PRINT_TIME}}</div>
+
+    {{ORDERS_HTML}}
+</body>
+</html>

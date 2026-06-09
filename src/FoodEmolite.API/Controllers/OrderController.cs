@@ -60,9 +60,7 @@ public class OrderController : BaseApiController
     }
 
     [HttpPut("{id}/status")]
-    public async Task<IActionResult> UpdateStatus(
-        long id,
-        [FromBody] UpdateOrderStatusRequestDto request)
+    public async Task<IActionResult> UpdateStatus(long id, [FromBody] UpdateOrderStatusRequestDto request)
     {
         var result = await _orderService.UpdateStatusAsync(
             id,
@@ -70,5 +68,33 @@ public class OrderController : BaseApiController
             request);
 
         return Ok(result);
+    }
+
+    [HttpPut("{id}/payment-status")]
+    public async Task<IActionResult> UpdatePaymentStatus(long id, [FromBody] UpdatePaymentStatusRequestDto request)
+    {
+
+        var response = await _orderService.UpdatePaymentStatusAsync(
+            id,
+            CurrentUserId!.Value,
+            CurrentUserRefCode,
+            request
+        );
+
+        return Ok(response);
+    }
+
+    [HttpPost("print")]
+    public async Task<IActionResult> PrintOrders([FromBody] PrintOrdersRequestDto request)
+    {
+        var result = await _orderService.PrintOrdersAsync(CurrentUserId!.Value, request);
+
+        if (!result.IsSuccess) return Ok(result);
+
+        return File(
+            result.Data!,
+            "application/pdf",
+            $"orders-{DateTime.Now:yyyyMMddHHmmss}.pdf"
+        );
     }
 }

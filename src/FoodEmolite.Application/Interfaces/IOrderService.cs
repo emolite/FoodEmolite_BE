@@ -14,4 +14,8 @@ public interface IOrderService
     Task<BaseTableResponse<OrderResponseDto>> GetByStoreRefCodeAsync(string storeRefCode, int page, int pageSize);
 
     Task<BaseResponse<string>> UpdateStatusAsync(long id, long currentUserId, string refCode, UpdateOrderStatusRequestDto request);
+
+    Task<BaseResponse<string>> UpdatePaymentStatusAsync(long id, long currentUserId, string refCode, UpdatePaymentStatusRequestDto request);
+
+    Task<BaseResponse<byte[]>> PrintOrdersAsync(long currentUserId, PrintOrdersRequestDto request);
 }

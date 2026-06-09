@@ -21,10 +21,12 @@ public class StoreFoodService : IStoreFoodService
         _cloudinaryService = cloudinaryService;
     }
 
-    public async Task<BaseResponse<string>> CreateAsync(string refCode,CreateStoreFoodRequestDto request)
+    public async Task<BaseResponse<string>> CreateAsync(string refCode, CreateStoreFoodRequestDto request)
     {
         var repoStore = _unitOfWork.GetRepository<Store>();
         var repoStoreFood = _unitOfWork.GetRepository<StoreFood>();
+        var repoOptionGroup = _unitOfWork.GetRepository<StoreFoodOptionGroup>();
+        var repoOption = _unitOfWork.GetRepository<StoreFoodOption>();
 
         var store = await repoStore.FirstOrDefaultAsync(x =>
             x.RefCode == request.StoreRefCode &&
@@ -37,8 +39,7 @@ public class StoreFoodService : IStoreFoodService
 
         if (request.ThumbnailFile != null && request.ThumbnailFile.Length > 0)
         {
-            var uploadResult = await _cloudinaryService.UploadProductImageAsync(
-                request.ThumbnailFile);
+            var uploadResult = await _cloudinaryService.UploadProductImageAsync(request.ThumbnailFile);
 
             if (!uploadResult.IsSuccess)
                 return BaseResponse<string>.Fail(uploadResult.Message);
@@ -63,12 +64,55 @@ public class StoreFoodService : IStoreFoodService
         await repoStoreFood.AddAsync(storeFood);
         await _unitOfWork.SaveChangesAsync();
 
+        if (request.OptionGroups != null && request.OptionGroups.Any())
+        {
+            foreach (var groupRequest in request.OptionGroups)
+            {
+                var optionGroup = new StoreFoodOptionGroup
+                {
+                    RefCode = refCode,
+                    StoreFoodId = storeFood.Id,
+                    GroupName = groupRequest.GroupName,
+                    IsRequired = groupRequest.IsRequired,
+                    MinSelect = groupRequest.MinSelect,
+                    MaxSelect = groupRequest.MaxSelect,
+                    SortOrder = groupRequest.SortOrder,
+                    IsDeleted = false,
+                    CreatedAt = DateTime.Now
+                };
+
+                await repoOptionGroup.AddAsync(optionGroup);
+                await _unitOfWork.SaveChangesAsync();
+
+                foreach (var optionRequest in groupRequest.Options)
+                {
+                    var option = new StoreFoodOption
+                    {
+                        RefCode = refCode,
+                        OptionGroupId = optionGroup.Id,
+                        OptionName = optionRequest.OptionName,
+                        AdditionalPrice = optionRequest.AdditionalPrice,
+                        IsAvailable = optionRequest.IsAvailable,
+                        SortOrder = optionRequest.SortOrder,
+                        IsDeleted = false,
+                        CreatedAt = DateTime.Now
+                    };
+
+                    await repoOption.AddAsync(option);
+                }
+            }
+
+            await _unitOfWork.SaveChangesAsync();
+        }
+
         return BaseResponse<string>.Success("Create store food successfully");
     }
 
-    public async Task<BaseResponse<string>> UpdateAsync(long id, UpdateStoreFoodRequestDto request)
+    public async Task<BaseResponse<string>> UpdateAsync(string refCode, long id, UpdateStoreFoodRequestDto request)
     {
         var repoStoreFood = _unitOfWork.GetRepository<StoreFood>();
+        var repoOptionGroup = _unitOfWork.GetRepository<StoreFoodOptionGroup>();
+        var repoOption = _unitOfWork.GetRepository<StoreFoodOption>();
 
         var storeFood = await repoStoreFood.FirstOrDefaultAsync(x =>
             x.Id == id &&
@@ -79,8 +123,7 @@ public class StoreFoodService : IStoreFoodService
 
         if (request.ThumbnailFile != null && request.ThumbnailFile.Length > 0)
         {
-            var uploadResult = await _cloudinaryService.UploadProductImageAsync(
-                request.ThumbnailFile);
+            var uploadResult = await _cloudinaryService.UploadProductImageAsync(request.ThumbnailFile);
 
             if (!uploadResult.IsSuccess)
                 return BaseResponse<string>.Fail(uploadResult.Message);
@@ -93,9 +136,76 @@ public class StoreFoodService : IStoreFoodService
         storeFood.Price = request.Price;
         storeFood.Quantity = request.Quantity;
         storeFood.IsAvailable = request.IsAvailable;
+        storeFood.UpdatedAt = DateTime.Now;
 
         repoStoreFood.Update(storeFood);
+
+        var oldGroups = await repoOptionGroup.Query()
+            .Where(x => x.StoreFoodId == storeFood.Id && !x.IsDeleted)
+            .ToListAsync();
+
+        var oldGroupIds = oldGroups.Select(x => x.Id).ToList();
+
+        var oldOptions = await repoOption.Query()
+            .Where(x => oldGroupIds.Contains(x.OptionGroupId) && !x.IsDeleted)
+            .ToListAsync();
+
+        foreach (var option in oldOptions)
+        {
+            option.IsDeleted = true;
+            option.UpdatedAt = DateTime.Now;
+            repoOption.Update(option);
+        }
+
+        foreach (var group in oldGroups)
+        {
+            group.IsDeleted = true;
+            group.UpdatedAt = DateTime.Now;
+            repoOptionGroup.Update(group);
+        }
+
         await _unitOfWork.SaveChangesAsync();
+
+        if (request.OptionGroups != null && request.OptionGroups.Any())
+        {
+            foreach (var groupRequest in request.OptionGroups)
+            {
+                var optionGroup = new StoreFoodOptionGroup
+                {
+                    RefCode = refCode,
+                    StoreFoodId = storeFood.Id,
+                    GroupName = groupRequest.GroupName,
+                    IsRequired = groupRequest.IsRequired,
+                    MinSelect = groupRequest.MinSelect,
+                    MaxSelect = groupRequest.MaxSelect,
+                    SortOrder = groupRequest.SortOrder,
+                    IsDeleted = false,
+                    CreatedAt = DateTime.Now
+                };
+
+                await repoOptionGroup.AddAsync(optionGroup);
+                await _unitOfWork.SaveChangesAsync();
+
+                foreach (var optionRequest in groupRequest.Options)
+                {
+                    var option = new StoreFoodOption
+                    {
+                        RefCode = refCode,
+                        OptionGroupId = optionGroup.Id,
+                        OptionName = optionRequest.OptionName,
+                        AdditionalPrice = optionRequest.AdditionalPrice,
+                        IsAvailable = optionRequest.IsAvailable,
+                        SortOrder = optionRequest.SortOrder,
+                        IsDeleted = false,
+                        CreatedAt = DateTime.Now
+                    };
+
+                    await repoOption.AddAsync(option);
+                }
+            }
+
+            await _unitOfWork.SaveChangesAsync();
+        }
 
         return BaseResponse<string>.Success("Update store food successfully");
     }
@@ -103,6 +213,8 @@ public class StoreFoodService : IStoreFoodService
     public async Task<BaseResponse<string>> DeleteAsync(long id)
     {
         var repoStoreFood = _unitOfWork.GetRepository<StoreFood>();
+        var repoOptionGroup = _unitOfWork.GetRepository<StoreFoodOptionGroup>();
+        var repoOption = _unitOfWork.GetRepository<StoreFoodOption>();
 
         var storeFood = await repoStoreFood.FirstOrDefaultAsync(x =>
             x.Id == id &&
@@ -112,6 +224,31 @@ public class StoreFoodService : IStoreFoodService
             return BaseResponse<string>.Fail("Store food not found");
 
         storeFood.IsDeleted = true;
+        storeFood.UpdatedAt = DateTime.Now;
+
+        var groups = await repoOptionGroup.Query()
+            .Where(x => x.StoreFoodId == storeFood.Id && !x.IsDeleted)
+            .ToListAsync();
+
+        var groupIds = groups.Select(x => x.Id).ToList();
+
+        var options = await repoOption.Query()
+            .Where(x => groupIds.Contains(x.OptionGroupId) && !x.IsDeleted)
+            .ToListAsync();
+
+        foreach (var option in options)
+        {
+            option.IsDeleted = true;
+            option.UpdatedAt = DateTime.Now;
+            repoOption.Update(option);
+        }
+
+        foreach (var group in groups)
+        {
+            group.IsDeleted = true;
+            group.UpdatedAt = DateTime.Now;
+            repoOptionGroup.Update(group);
+        }
 
         repoStoreFood.Update(storeFood);
         await _unitOfWork.SaveChangesAsync();
@@ -165,10 +302,7 @@ public class StoreFoodService : IStoreFoodService
         };
     }
 
-    public async Task<BaseTableResponse<StoreFoodResponseDto>> GetByStoreRefCodeAsync(
-        string storeRefCode,
-        int page,
-        int pageSize)
+    public async Task<BaseTableResponse<StoreFoodResponseDto>> GetByStoreRefCodeAsync(string storeRefCode, int page, int pageSize)
     {
         var repoStoreFood = _unitOfWork.GetRepository<StoreFood>();
 
@@ -216,6 +350,8 @@ public class StoreFoodService : IStoreFoodService
     public async Task<BaseResponse<StoreFoodResponseDto>> GetDetailAsync(long id)
     {
         var repoStoreFood = _unitOfWork.GetRepository<StoreFood>();
+        var repoOptionGroup = _unitOfWork.GetRepository<StoreFoodOptionGroup>();
+        var repoOption = _unitOfWork.GetRepository<StoreFoodOption>();
 
         var storeFood = await repoStoreFood.FirstOrDefaultAsync(x =>
             x.Id == id &&
@@ -224,7 +360,21 @@ public class StoreFoodService : IStoreFoodService
         if (storeFood is null)
             return BaseResponse<StoreFoodResponseDto>.Fail("Store food not found");
 
-        return BaseResponse<StoreFoodResponseDto>.Success(new StoreFoodResponseDto
+        var optionGroups = await repoOptionGroup.Query()
+            .AsNoTracking()
+            .Where(x => x.StoreFoodId == storeFood.Id && !x.IsDeleted)
+            .OrderBy(x => x.SortOrder)
+            .ToListAsync();
+
+        var groupIds = optionGroups.Select(x => x.Id).ToList();
+
+        var options = await repoOption.Query()
+            .AsNoTracking()
+            .Where(x => groupIds.Contains(x.OptionGroupId) && !x.IsDeleted)
+            .OrderBy(x => x.SortOrder)
+            .ToListAsync();
+
+        var response = new StoreFoodResponseDto
         {
             Id = storeFood.Id,
             RefCode = storeFood.RefCode,
@@ -236,7 +386,31 @@ public class StoreFoodService : IStoreFoodService
             Description = storeFood.Description,
             Price = storeFood.Price,
             Quantity = storeFood.Quantity,
-            IsAvailable = storeFood.IsAvailable
-        });
+            IsAvailable = storeFood.IsAvailable,
+            OptionGroups = optionGroups.Select(group => new StoreFoodOptionGroupResponseDto
+            {
+                Id = group.Id,
+                RefCode = group.RefCode,
+                GroupName = group.GroupName,
+                IsRequired = group.IsRequired,
+                MinSelect = group.MinSelect,
+                MaxSelect = group.MaxSelect,
+                SortOrder = group.SortOrder,
+                Options = options
+                    .Where(option => option.OptionGroupId == group.Id)
+                    .Select(option => new StoreFoodOptionResponseDto
+                    {
+                        Id = option.Id,
+                        RefCode = option.RefCode,
+                        OptionName = option.OptionName,
+                        AdditionalPrice = option.AdditionalPrice,
+                        IsAvailable = option.IsAvailable,
+                        SortOrder = option.SortOrder
+                    })
+                    .ToList()
+            }).ToList()
+        };
+
+        return BaseResponse<StoreFoodResponseDto>.Success(response);
     }
 }

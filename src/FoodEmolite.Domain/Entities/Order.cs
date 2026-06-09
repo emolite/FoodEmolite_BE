@@ -10,6 +10,9 @@ public class Order : BaseEntity
     [Column("customer_account_id")]
     public long CustomerAccountId { get; set; }
 
+    [Column("order_code")]
+    public string OrderCode { get; set; }
+
     [Column("store_ref_code")]
     public string StoreRefCode { get; set; }
 
