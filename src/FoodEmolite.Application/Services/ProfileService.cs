@@ -6,6 +6,7 @@ using FoodEmolite.Domain.Entities;
 using FoodEmolite.Domain.Interfaces;
 using FoodEmolite.Shared.Responses;
 using Microsoft.EntityFrameworkCore;
+using System.Linq;
 
 namespace FoodEmolite.Application.Services;
 
@@ -20,6 +21,209 @@ public class ProfileService : IProfileService
     {
         _unitOfWork = unitOfWork;
         _cloudinaryService = cloudinaryService;
+    }
+
+    public async Task<BaseTableResponse<UserProfileResponseDto>> GetAllAccountProfilesAsync(int page, int pageSize)
+    {
+        var repoAccount = _unitOfWork.GetRepository<Account>();
+        var repoProfile = _unitOfWork.GetRepository<AccountProfile>();
+
+        var accountQuery = repoAccount
+            .Query()
+            .AsNoTracking()
+            .Where(x =>
+                !x.IsDeleted &&
+                x.Role == "User");
+
+        var totalRecords = await accountQuery.CountAsync();
+
+        var accounts = await accountQuery
+            .OrderByDescending(x => x.CreatedAt)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .ToListAsync();
+
+        var accountIds = accounts
+            .Select(x => x.Id)
+            .ToList();
+
+        var profiles = await repoProfile
+            .Query()
+            .AsNoTracking()
+            .Where(x => accountIds.Contains(x.AccountId))
+            .ToListAsync();
+
+        var items = accounts.Select(account =>
+        {
+            var profile = profiles.FirstOrDefault(x =>
+                x.AccountId == account.Id);
+
+            return new UserProfileResponseDto
+            {
+                Account = new AccountDto
+                {
+                    Id = account.Id,
+                    RefCode = account.RefCode,
+                    Username = account.Username,
+                    Email = account.Email,
+                    Role = account.Role,
+                    IsActive = account.IsActive
+                },
+
+                Profile = profile == null
+                    ? null
+                    : new AccountProfileDto
+                    {
+                        Id = profile.Id,
+                        RefCode = profile.RefCode,
+                        AccountId = profile.AccountId,
+                        FullName = profile.FullName,
+                        PhoneNumber = profile.PhoneNumber,
+                        Gender = profile.Gender,
+                        DateOfBirth = profile.DateOfBirth,
+                        Address = profile.Address,
+                        AvatarUrl = !string.IsNullOrWhiteSpace(profile.AvatarUrl)
+                            ? _cloudinaryService.BuildImageUrl(profile.AvatarUrl)
+                            : null
+                    }
+            };
+        }).ToList();
+
+        return new BaseTableResponse<UserProfileResponseDto>
+        {
+            Items = items,
+            Page = page,
+            PageSize = pageSize,
+            TotalRecords = totalRecords
+        };
+    }
+
+    public async Task<BaseTableResponse<MyProfileResponseDto>> GetAllAgentProfilesAsync(int page, int pageSize)
+    {
+        var repoAccount = _unitOfWork.GetRepository<Account>();
+        var repoProfile = _unitOfWork.GetRepository<AccountProfile>();
+        var repoBank = _unitOfWork.GetRepository<BankAccount>();
+        var repoStore = _unitOfWork.GetRepository<Store>();
+
+        var accountQuery = repoAccount
+            .Query()
+            .AsNoTracking()
+            .Where(x =>
+                !x.IsDeleted &&
+                x.Role == "Agent");
+
+        var totalRecords = await accountQuery.CountAsync();
+
+        var accounts = await accountQuery
+            .OrderByDescending(x => x.CreatedAt)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .ToListAsync();
+
+        var accountIds = accounts
+            .Select(x => x.Id)
+            .ToList();
+
+        var profiles = await repoProfile
+            .Query()
+            .AsNoTracking()
+            .Where(x => accountIds.Contains(x.AccountId))
+            .ToListAsync();
+
+        var bankAccounts = await repoBank
+            .Query()
+            .AsNoTracking()
+            .Where(x =>
+                accountIds.Contains(x.AccountId) &&
+                x.IsActive)
+            .ToListAsync();
+
+        var stores = await repoStore
+            .Query()
+            .AsNoTracking()
+            .Where(x =>
+                x.OwnerAccountId.HasValue &&
+                accountIds.Contains(x.OwnerAccountId.Value) &&
+                !x.IsDeleted)
+            .ToListAsync();
+
+        var items = accounts.Select(account =>
+        {
+            var profile = profiles.FirstOrDefault(x => x.AccountId == account.Id);
+            var store = stores.FirstOrDefault(x => x.OwnerAccountId == account.Id);
+
+            return new MyProfileResponseDto
+            {
+                Account = new AccountDto
+                {
+                    Id = account.Id,
+                    RefCode = account.RefCode,
+                    Username = account.Username,
+                    Email = account.Email,
+                    Role = account.Role,
+                    IsActive = account.IsActive
+                },
+
+                Profile = profile == null
+                    ? null
+                    : new AccountProfileDto
+                    {
+                        Id = profile.Id,
+                        RefCode = profile.RefCode,
+                        AccountId = profile.AccountId,
+                        FullName = profile.FullName,
+                        PhoneNumber = profile.PhoneNumber,
+                        Gender = profile.Gender,
+                        DateOfBirth = profile.DateOfBirth,
+                        Address = profile.Address,
+                        AvatarUrl = !string.IsNullOrWhiteSpace(profile.AvatarUrl)
+                            ? _cloudinaryService.BuildImageUrl(profile.AvatarUrl)
+                            : null
+                    },
+
+                BankAccounts = bankAccounts
+                    .Where(x => x.AccountId == account.Id)
+                    .Select(x => new BankAccountDto
+                    {
+                        Id = x.Id,
+                        RefCode = x.RefCode,
+                        AccountId = x.AccountId,
+                        BankName = x.BankName,
+                        BankCode = x.BankCode,
+                        AccountNumber = x.AccountNumber,
+                        AccountHolderName = x.AccountHolderName,
+                        IsDefault = x.IsDefault,
+                        IsActive = x.IsActive
+                    })
+                    .ToList(),
+
+                Store = store == null
+                    ? null
+                    : new StoreResponseDto
+                    {
+                        Id = store.Id,
+                        RefCode = store.RefCode,
+                        OwnerAccountId = store.OwnerAccountId,
+                        StoreName = store.StoreName,
+                        ThumbnailUrl = !string.IsNullOrWhiteSpace(store.ThumbnailUrl)
+                            ? _cloudinaryService.BuildImageUrl(store.ThumbnailUrl)
+                            : null,
+                        PhoneNumber = store.PhoneNumber,
+                        Address = store.Address,
+                        Description = store.Description,
+                        IsActive = store.IsActive,
+                        CreatedAt = store.CreatedAt
+                    }
+            };
+        }).ToList();
+
+        return new BaseTableResponse<MyProfileResponseDto>
+        {
+            Items = items,
+            Page = page,
+            PageSize = pageSize,
+            TotalRecords = totalRecords
+        };
     }
 
     public async Task<BaseResponse<MyProfileResponseDto>> GetMyProfileAsync(long currentUserId)

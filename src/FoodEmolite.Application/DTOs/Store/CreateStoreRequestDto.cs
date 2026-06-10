@@ -11,6 +11,8 @@ namespace FoodEmolite.Application.DTOs.Store
     {
         public string StoreName { get; set; }
 
+        public long OwnerAccountId { get; set; }
+
         public IFormFile? ThumbnailFile { get; set; }
 
         public string? PhoneNumber { get; set; }

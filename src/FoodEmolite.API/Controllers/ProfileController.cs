@@ -17,6 +17,20 @@ namespace FoodEmolite.API.Controllers
             _profileService = profileService;
         }
 
+        [HttpGet("accounts-users")]
+        public async Task<IActionResult> GetAllAccountProfiles([FromQuery] int page = 1, [FromQuery] int pageSize = 10)
+        {
+            var result = await _profileService.GetAllAccountProfilesAsync(page, pageSize);
+            return Ok(result);
+        }
+
+        [HttpGet("accounts-agents")]
+        public async Task<IActionResult> GetAllAccountAgents([FromQuery] int page = 1, [FromQuery] int pageSize = 10)
+        {
+            var result = await _profileService.GetAllAgentProfilesAsync(page, pageSize);
+            return Ok(result);
+        }
+
         [HttpGet("me")]
         public async Task<IActionResult> GetMyProfile()
         {

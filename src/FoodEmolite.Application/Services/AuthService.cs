@@ -44,9 +44,7 @@ public class AuthService : IAuthService
 
         var account = new Account
         {
-            RefCode = Guid
-                .NewGuid()
-                .ToString().ToUpper(),
+            RefCode = Guid.NewGuid().ToString().ToUpper(),
             Username = request.Username,
             Email = request.Email,
             PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.Password),
@@ -57,6 +55,41 @@ public class AuthService : IAuthService
         await _unitOfWork.SaveChangesAsync();
 
         return BaseResponse<string>.Success("Register successfully");
+    }
+
+    public async Task<BaseResponse<string>> CreateAgent(RegisterRequest request, string refCode)
+    {
+        var repoAccount = _unitOfWork.GetRepository<Account>();
+
+        var existedEmail = await repoAccount.AnyAsync(x => x.Email == request.Email);
+
+        if (existedEmail)
+        {
+            return BaseResponse<string>.Fail("Email already exists");
+        }
+
+        var existedUsername = await repoAccount
+            .AnyAsync(x =>
+                x.Username == request.Username);
+
+        if (existedUsername)
+        {
+            return BaseResponse<string>.Fail("Username already exists");
+        }
+
+        var account = new Account
+        {
+            RefCode = refCode,
+            Username = request.Username,
+            Email = request.Email,
+            PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.Password),
+            Role = "Agent"
+        };
+
+        await repoAccount.AddAsync(account);
+        await _unitOfWork.SaveChangesAsync();
+
+        return BaseResponse<string>.Success("Create account successfully");
     }
     public async Task<BaseResponse<LoginResponse>> LoginAsync(LoginRequest request)
     {

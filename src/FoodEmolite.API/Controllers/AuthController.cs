@@ -24,6 +24,13 @@ public class AuthController : BaseApiController
         return Ok(result);
     }
 
+    [HttpPost("add-agent")]
+    public async Task<IActionResult> AddAgent(RegisterRequest request)
+    {
+        var result = await _authService.CreateAgent(request, CurrentUserRefCode);
+        return Ok(result);
+    }
+
     [HttpPost("login")]
     public async Task<IActionResult>Login(LoginRequest request)
     {

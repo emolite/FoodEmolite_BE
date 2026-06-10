@@ -42,6 +42,7 @@ public class StoreService : IStoreService
         {
             RefCode = Guid.NewGuid().ToString().ToUpper(),
             StoreName = request.StoreName,
+            OwnerAccountId = request.OwnerAccountId,
             ThumbnailUrl = thumbnailFileRefCode,
             PhoneNumber = request.PhoneNumber,
             Address = request.Address,
