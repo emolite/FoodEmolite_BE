@@ -315,7 +315,7 @@ public class ProfileService : IProfileService
             });
     }
 
-    public async Task<BaseResponse<StorePaymentInfoResponseDto>> GetStorePaymentInfoAsync(string storeRefCode, decimal amount)
+    public async Task<BaseResponse<StorePaymentInfoResponseDto>> GetStorePaymentInfoAsync(string storeRefCode, decimal amount, string orderCode)
     {
         var repoStore = _unitOfWork.GetRepository<Store>();
         var repoBank = _unitOfWork.GetRepository<BankAccount>();
@@ -337,7 +337,7 @@ public class ProfileService : IProfileService
             return BaseResponse<StorePaymentInfoResponseDto>.Fail("Bank account not found");
 
         var accountName = Uri.EscapeDataString(bankAccount.AccountHolderName ?? "");
-        var addInfo = Uri.EscapeDataString($"Thanh toan don hang {store.StoreName}");
+        var addInfo = Uri.EscapeDataString($"Thanh toan don hang {orderCode}");
         var amountValue = Math.Round(amount, 0);
 
         var vietQrUrl =

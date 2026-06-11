@@ -18,6 +18,8 @@
 
         public string PaymentStatus { get; set; }
 
+        public string? CustomerName { get; set; }
+
         public string? Note { get; set; }
 
         public DateTime CreatedAt { get; set; }

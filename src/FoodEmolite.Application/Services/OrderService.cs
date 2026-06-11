@@ -154,6 +154,8 @@ public class OrderService : IOrderService
         var repoOrder = _unitOfWork.GetRepository<Order>();
         var repoOrderItem = _unitOfWork.GetRepository<OrderItem>();
         var repoFood = _unitOfWork.GetRepository<StoreFood>();
+        var repoAccount = _unitOfWork.GetRepository<Account>();
+        var repoAccountProfile = _unitOfWork.GetRepository<AccountProfile>();
 
         page = page <= 0 ? 1 : page;
         pageSize = pageSize <= 0 ? 10 : pageSize;
@@ -165,25 +167,42 @@ public class OrderService : IOrderService
 
         var totalRecords = await query.CountAsync();
 
-        var items = await query
-            .OrderByDescending(x => x.Id)
-            .Skip((page - 1) * pageSize)
-            .Take(pageSize)
-            .Select(x => new OrderResponseDto
-            {
-                Id = x.Id,
-                OrderCode = x.OrderCode,
-                RefCode = x.RefCode,
-                CustomerAccountId = x.CustomerAccountId,
-                StoreRefCode = x.StoreRefCode,
-                TotalAmount = x.TotalAmount,
-                OrderStatus = x.OrderStatus,
-                PaymentStatus = x.PaymentStatus,
-                Note = x.Note,
-                CreatedAt = x.CreatedAt,
-                Items = new List<OrderItemResponseDto>()
-            })
-            .ToListAsync();
+        var items = await (
+             from order in query
+
+             join account in repoAccount.Query().AsNoTracking()
+                 on order.CustomerAccountId equals account.Id
+
+             join profile in repoAccountProfile.Query().AsNoTracking()
+                 on account.Id equals profile.AccountId into profileGroup
+
+             from profile in profileGroup.DefaultIfEmpty()
+
+             orderby order.Id descending
+
+             select new OrderResponseDto
+             {
+                 Id = order.Id,
+                 OrderCode = order.OrderCode,
+                 RefCode = order.RefCode,
+                 CustomerAccountId = order.CustomerAccountId,
+
+                 CustomerName =
+                     profile != null && !string.IsNullOrEmpty(profile.FullName)
+                         ? profile.FullName
+                         : account.Username,
+
+                 StoreRefCode = order.StoreRefCode,
+                 TotalAmount = order.TotalAmount,
+                 OrderStatus = order.OrderStatus,
+                 PaymentStatus = order.PaymentStatus,
+                 Note = order.Note,
+                 CreatedAt = order.CreatedAt,
+                 Items = new List<OrderItemResponseDto>()
+             })
+             .Skip((page - 1) * pageSize)
+             .Take(pageSize)
+             .ToListAsync();
 
         var orderIds = items
             .Select(x => x.Id)
@@ -273,6 +292,8 @@ public class OrderService : IOrderService
         var repoOrder = _unitOfWork.GetRepository<Order>();
         var repoOrderItem = _unitOfWork.GetRepository<OrderItem>();
         var repoFood = _unitOfWork.GetRepository<StoreFood>();
+        var repoAccount = _unitOfWork.GetRepository<Account>();
+        var repoAccountProfile = _unitOfWork.GetRepository<AccountProfile>();
 
         page = page <= 0 ? 1 : page;
         pageSize = pageSize <= 0 ? 10 : pageSize;
@@ -284,24 +305,41 @@ public class OrderService : IOrderService
 
         var totalRecords = await query.CountAsync();
 
-        var items = await query
-            .OrderByDescending(x => x.Id)
-            .Skip((page - 1) * pageSize)
-            .Take(pageSize)
-            .Select(x => new OrderResponseDto
+        var items = await (
+            from order in query
+
+            join account in repoAccount.Query().AsNoTracking()
+                on order.CustomerAccountId equals account.Id
+
+            join profile in repoAccountProfile.Query().AsNoTracking()
+                on account.Id equals profile.AccountId into profileGroup
+
+            from profile in profileGroup.DefaultIfEmpty()
+
+            orderby order.Id descending
+
+            select new OrderResponseDto
             {
-                Id = x.Id,
-                OrderCode = x.OrderCode,
-                RefCode = x.RefCode,
-                CustomerAccountId = x.CustomerAccountId,
-                StoreRefCode = x.StoreRefCode,
-                TotalAmount = x.TotalAmount,
-                OrderStatus = x.OrderStatus,
-                PaymentStatus = x.PaymentStatus,
-                Note = x.Note,
-                CreatedAt = x.CreatedAt,
+                Id = order.Id,
+                OrderCode = order.OrderCode,
+                RefCode = order.RefCode,
+                CustomerAccountId = order.CustomerAccountId,
+
+                CustomerName =
+                    profile != null && !string.IsNullOrEmpty(profile.FullName)
+                        ? profile.FullName
+                        : account.Username,
+
+                StoreRefCode = order.StoreRefCode,
+                TotalAmount = order.TotalAmount,
+                OrderStatus = order.OrderStatus,
+                PaymentStatus = order.PaymentStatus,
+                Note = order.Note,
+                CreatedAt = order.CreatedAt,
                 Items = new List<OrderItemResponseDto>()
             })
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
             .ToListAsync();
 
         var orderIds = items
@@ -416,9 +454,7 @@ public class OrderService : IOrderService
         return BaseResponse<string>.Success("Update payment status successfully");
     }
 
-    public async Task<BaseResponse<byte[]>> PrintOrdersAsync(
-        long currentUserId,
-        PrintOrdersRequestDto request)
+    public async Task<BaseResponse<byte[]>> PrintOrdersAsync(long currentUserId, PrintOrdersRequestDto request)
     {
         if (request.OrderIds == null || !request.OrderIds.Any())
             return BaseResponse<byte[]>.Fail("Vui lòng chọn đơn hàng để in");
@@ -598,51 +634,12 @@ public class OrderService : IOrderService
         return $"{value:N0}đ";
     }
 
-    private string GetOrderStatusText(string status)
-    {
-        return status switch
-        {
-            "PENDING" => "Chờ xác nhận",
-            "CONFIRMED" => "Đã xác nhận",
-            _ => status
-        };
-    }
-
-    private string GetPaymentStatusText(string status)
-    {
-        return status switch
-        {
-            "UNPAID" => "Chưa thanh toán",
-            "PAID" => "Đã thanh toán",
-            _ => status
-        };
-    }
-
     private byte[] BuildOrdersPdf(List<PrintOrderViewModel> orders)
     {
         QuestPDF.Settings.License = LicenseType.Community;
 
-        var groups = orders
-            .GroupBy(x => new
-            {
-                x.CustomerName,
-                x.CustomerPhone,
-                x.CustomerAddress
-            })
-            .Select(group => new
-            {
-                CustomerName = group.Key.CustomerName,
-                CustomerPhone = group.Key.CustomerPhone,
-                CustomerAddress = group.Key.CustomerAddress,
-                Orders = group.OrderBy(x => x.CreatedAt).ToList(),
-                Items = group
-                    .SelectMany(order => order.Items.Select(item => new
-                    {
-                        OrderCreatedAt = order.CreatedAt,
-                        Item = item
-                    }))
-                    .ToList()
-            })
+        var orderedOrders = orders
+            .OrderBy(x => x.CreatedAt)
             .ToList();
 
         var grandTotal = orders.Sum(x => x.TotalAmount);
@@ -672,11 +669,11 @@ public class OrderService : IOrderService
 
                 page.Content().PaddingTop(14).Column(column =>
                 {
-                    for (var groupIndex = 0; groupIndex < groups.Count; groupIndex++)
+                    for (var orderIndex = 0; orderIndex < orderedOrders.Count; orderIndex++)
                     {
-                        var group = groups[groupIndex];
+                        var order = orderedOrders[orderIndex];
 
-                        if (groupIndex > 0)
+                        if (orderIndex > 0)
                         {
                             column.Item()
                                 .PaddingVertical(10)
@@ -688,37 +685,20 @@ public class OrderService : IOrderService
                         {
                             row.RelativeItem().Column(customer =>
                             {
-                                customer.Item().Text(group.CustomerName)
+                                customer.Item().Text(order.CustomerName)
                                     .Bold()
                                     .FontSize(12);
-
-                                if (!string.IsNullOrWhiteSpace(group.CustomerPhone))
-                                {
-                                    customer.Item().Text($"SĐT: {group.CustomerPhone}")
-                                        .FontSize(8)
-                                        .FontColor(Colors.Grey.Darken1);
-                                }
-
-                                var firstOrderTime = group.Orders.Min(x => x.CreatedAt);
-
-                                customer.Item().Text($"Đặt lúc: {firstOrderTime:dd/MM/yyyy HH:mm}")
-                                    .FontSize(8)
-                                    .FontColor(Colors.Grey.Darken1);
                             });
 
-                            var customerTotal = group.Orders.Sum(x => x.TotalAmount);
-
-                            row.ConstantItem(110).AlignRight().Text(FormatCurrency(customerTotal))
+                            row.ConstantItem(110).AlignRight().Text(FormatCurrency(order.TotalAmount))
                                 .Bold()
                                 .FontSize(11);
                         });
 
                         column.Item().PaddingTop(8);
 
-                        foreach (var rowItem in group.Items)
+                        foreach (var item in order.Items)
                         {
-                            var item = rowItem.Item;
-
                             column.Item().PaddingBottom(7).Row(row =>
                             {
                                 row.RelativeItem().Column(itemColumn =>

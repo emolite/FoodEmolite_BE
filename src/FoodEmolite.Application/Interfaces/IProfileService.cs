@@ -11,7 +11,7 @@ public interface IProfileService
     Task<BaseResponse<MyProfileResponseDto>> GetMyProfileAsync(
         long currentUserId);
 
-    Task<BaseResponse<StorePaymentInfoResponseDto>> GetStorePaymentInfoAsync(string storeRefCode, decimal amount);
+    Task<BaseResponse<StorePaymentInfoResponseDto>> GetStorePaymentInfoAsync(string storeRefCode, decimal amount, string orderCode);
 
     Task<BaseResponse<AccountProfileDto>> CreateAccountProfileAsync(
         long currentUserId,

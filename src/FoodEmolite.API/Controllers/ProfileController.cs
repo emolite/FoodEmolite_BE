@@ -39,11 +39,11 @@ namespace FoodEmolite.API.Controllers
         }
 
         [HttpGet("store-payment/{storeRefCode}")]
-        public async Task<IActionResult> GetStorePaymentInfo(string storeRefCode, [FromQuery] decimal amount)
+        public async Task<IActionResult> GetStorePaymentInfo(string storeRefCode, [FromQuery] decimal amount,[FromQuery] string orderCode)
         {
             var result = await _profileService.GetStorePaymentInfoAsync(
                 storeRefCode,
-                amount);
+                amount, orderCode);
 
             return Ok(result);
         }
