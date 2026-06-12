@@ -50,6 +50,7 @@ public class StoreController : BaseApiController
         return Ok(result);
     }
 
+    [AllowAnonymous]
     [HttpGet]
     public async Task<IActionResult> GetAll(
         [FromQuery] int page = 1,

@@ -38,6 +38,7 @@ public class StoreFoodController : BaseApiController
         return Ok(result);
     }
 
+    [AllowAnonymous]
     [HttpGet("{id}")]
     public async Task<IActionResult> GetDetail(long id)
     {
@@ -52,6 +53,7 @@ public class StoreFoodController : BaseApiController
         return Ok(result);
     }
 
+    [AllowAnonymous]
     [HttpGet("store/{storeRefCode}")]
     public async Task<IActionResult> GetByStoreRefCode(string storeRefCode, [FromQuery] int page = 1, [FromQuery] int pageSize = 10)
     {

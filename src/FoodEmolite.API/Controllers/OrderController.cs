@@ -25,6 +25,15 @@ public class OrderController : BaseApiController
         return Ok(result);
     }
 
+    [AllowAnonymous]
+    [HttpPost("guest")]
+    public async Task<IActionResult> CreateGuest([FromBody] CreateGuestOrderRequestDto request)
+    {
+        var result = await _orderService.CreateGuestAsync(request);
+
+        return Ok(result);
+    }
+
     [HttpGet("my")]
     public async Task<IActionResult> GetMyOrders(
         [FromQuery] int page = 1,

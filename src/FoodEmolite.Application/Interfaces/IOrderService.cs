@@ -6,7 +6,7 @@ namespace FoodEmolite.Application.Interfaces;
 public interface IOrderService
 {
     Task<BaseResponse<string>> CreateAsync(long currentUserId, string refCode, CreateOrderRequestDto request);
-
+    Task<BaseResponse<string>> CreateGuestAsync(CreateGuestOrderRequestDto request);
     Task<BaseTableResponse<OrderResponseDto>> GetMyOrdersAsync(long currentUserId, int page, int pageSize);
 
     Task<BaseResponse<OrderResponseDto>> GetDetailAsync(long id, long currentUserId);

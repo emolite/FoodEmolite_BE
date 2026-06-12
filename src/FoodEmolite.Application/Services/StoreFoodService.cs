@@ -140,72 +140,141 @@ public class StoreFoodService : IStoreFoodService
 
         repoStoreFood.Update(storeFood);
 
-        var oldGroups = await repoOptionGroup.Query()
-            .Where(x => x.StoreFoodId == storeFood.Id && !x.IsDeleted)
-            .ToListAsync();
-
-        var oldGroupIds = oldGroups.Select(x => x.Id).ToList();
-
-        var oldOptions = await repoOption.Query()
-            .Where(x => oldGroupIds.Contains(x.OptionGroupId) && !x.IsDeleted)
-            .ToListAsync();
-
-        foreach (var option in oldOptions)
-        {
-            option.IsDeleted = true;
-            option.UpdatedAt = DateTime.Now;
-            repoOption.Update(option);
-        }
-
-        foreach (var group in oldGroups)
-        {
-            group.IsDeleted = true;
-            group.UpdatedAt = DateTime.Now;
-            repoOptionGroup.Update(group);
-        }
-
-        await _unitOfWork.SaveChangesAsync();
-
         if (request.OptionGroups != null && request.OptionGroups.Any())
         {
+            var requestGroupIds = request.OptionGroups
+                .Where(x => x.Id.HasValue)
+                .Select(x => x.Id!.Value)
+                .Distinct()
+                .ToList();
+
+            var oldGroups = await repoOptionGroup.Query()
+                .Where(x =>
+                    x.StoreFoodId == storeFood.Id &&
+                    requestGroupIds.Contains(x.Id))
+                .ToListAsync();
+
+            var oldGroupIds = oldGroups
+                .Select(x => x.Id)
+                .ToList();
+
+            var requestOptionIds = request.OptionGroups
+                .SelectMany(x => x.Options ?? new List<StoreFoodOptionRequestDto>())
+                .Where(x => x.Id.HasValue)
+                .Select(x => x.Id!.Value)
+                .Distinct()
+                .ToList();
+
+            var oldOptions = await repoOption.Query()
+                .Where(x =>
+                    oldGroupIds.Contains(x.OptionGroupId) ||
+                    requestOptionIds.Contains(x.Id))
+                .ToListAsync();
+
             foreach (var groupRequest in request.OptionGroups)
             {
-                var optionGroup = new StoreFoodOptionGroup
-                {
-                    RefCode = refCode,
-                    StoreFoodId = storeFood.Id,
-                    GroupName = groupRequest.GroupName,
-                    IsRequired = groupRequest.IsRequired,
-                    MinSelect = groupRequest.MinSelect,
-                    MaxSelect = groupRequest.MaxSelect,
-                    SortOrder = groupRequest.SortOrder,
-                    IsDeleted = false,
-                    CreatedAt = DateTime.Now
-                };
+                StoreFoodOptionGroup? optionGroup = null;
 
-                await repoOptionGroup.AddAsync(optionGroup);
-                await _unitOfWork.SaveChangesAsync();
-
-                foreach (var optionRequest in groupRequest.Options)
+                if (groupRequest.Id.HasValue)
                 {
-                    var option = new StoreFoodOption
+                    optionGroup = oldGroups.FirstOrDefault(x => x.Id == groupRequest.Id.Value);
+
+                    if (optionGroup is null)
+                        continue;
+
+                    optionGroup.GroupName = groupRequest.GroupName;
+                    optionGroup.IsRequired = groupRequest.IsRequired;
+                    optionGroup.MinSelect = groupRequest.MinSelect;
+                    optionGroup.MaxSelect = groupRequest.MaxSelect;
+                    optionGroup.SortOrder = groupRequest.SortOrder;
+                    optionGroup.IsDeleted = groupRequest.IsDeleted;
+                    optionGroup.UpdatedAt = DateTime.Now;
+
+                    repoOptionGroup.Update(optionGroup);
+
+                    if (groupRequest.IsDeleted)
+                    {
+                        var optionsOfDeletedGroup = oldOptions
+                            .Where(x => x.OptionGroupId == optionGroup.Id)
+                            .ToList();
+
+                        foreach (var option in optionsOfDeletedGroup)
+                        {
+                            option.IsDeleted = true;
+                            option.UpdatedAt = DateTime.Now;
+                            repoOption.Update(option);
+                        }
+
+                        continue;
+                    }
+                }
+                else
+                {
+                    if (groupRequest.IsDeleted)
+                        continue;
+
+                    optionGroup = new StoreFoodOptionGroup
                     {
                         RefCode = refCode,
-                        OptionGroupId = optionGroup.Id,
-                        OptionName = optionRequest.OptionName,
-                        AdditionalPrice = optionRequest.AdditionalPrice,
-                        IsAvailable = optionRequest.IsAvailable,
-                        SortOrder = optionRequest.SortOrder,
+                        StoreFoodId = storeFood.Id,
+                        GroupName = groupRequest.GroupName,
+                        IsRequired = groupRequest.IsRequired,
+                        MinSelect = groupRequest.MinSelect,
+                        MaxSelect = groupRequest.MaxSelect,
+                        SortOrder = groupRequest.SortOrder,
                         IsDeleted = false,
                         CreatedAt = DateTime.Now
                     };
 
-                    await repoOption.AddAsync(option);
+                    await repoOptionGroup.AddAsync(optionGroup);
+                    await _unitOfWork.SaveChangesAsync();
+                }
+
+                if (groupRequest.Options == null || !groupRequest.Options.Any())
+                    continue;
+
+                foreach (var optionRequest in groupRequest.Options)
+                {
+                    if (optionRequest.Id.HasValue)
+                    {
+                        var option = oldOptions.FirstOrDefault(x => x.Id == optionRequest.Id.Value);
+
+                        if (option is null)
+                            continue;
+
+                        option.OptionName = optionRequest.OptionName;
+                        option.AdditionalPrice = optionRequest.AdditionalPrice;
+                        option.IsAvailable = optionRequest.IsAvailable;
+                        option.SortOrder = optionRequest.SortOrder;
+                        option.IsDeleted = optionRequest.IsDeleted;
+                        option.UpdatedAt = DateTime.Now;
+
+                        repoOption.Update(option);
+                    }
+                    else
+                    {
+                        if (optionRequest.IsDeleted)
+                            continue;
+
+                        var option = new StoreFoodOption
+                        {
+                            RefCode = refCode,
+                            OptionGroupId = optionGroup.Id,
+                            OptionName = optionRequest.OptionName,
+                            AdditionalPrice = optionRequest.AdditionalPrice,
+                            IsAvailable = optionRequest.IsAvailable,
+                            SortOrder = optionRequest.SortOrder,
+                            IsDeleted = false,
+                            CreatedAt = DateTime.Now
+                        };
+
+                        await repoOption.AddAsync(option);
+                    }
                 }
             }
-
-            await _unitOfWork.SaveChangesAsync();
         }
+
+        await _unitOfWork.SaveChangesAsync();
 
         return BaseResponse<string>.Success("Update store food successfully");
     }

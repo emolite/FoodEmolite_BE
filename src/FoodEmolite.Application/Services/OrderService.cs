@@ -149,6 +149,153 @@ public class OrderService : IOrderService
         return BaseResponse<string>.Success("Create order successfully");
     }
 
+    public async Task<BaseResponse<string>> CreateGuestAsync(CreateGuestOrderRequestDto request)
+    {
+        var repoStore = _unitOfWork.GetRepository<Store>();
+        var repoFood = _unitOfWork.GetRepository<StoreFood>();
+        var repoOrder = _unitOfWork.GetRepository<Order>();
+        var repoOrderItem = _unitOfWork.GetRepository<OrderItem>();
+        var repoOrderItemOption = _unitOfWork.GetRepository<OrderItemOption>();
+        var repoOrderHistory = _unitOfWork.GetRepository<OrderHistory>();
+        var repoCustomer = _unitOfWork.GetRepository<Customer>();
+
+        if (string.IsNullOrWhiteSpace(request.CustomerName))
+            return BaseResponse<string>.Fail("Customer name is required");
+
+        if (request.Items == null || !request.Items.Any())
+            return BaseResponse<string>.Fail("Order item is required");
+
+        if (request.Items.Any(x => x.Quantity <= 0))
+            return BaseResponse<string>.Fail("Quantity must be greater than 0");
+
+        var store = await repoStore.FirstOrDefaultAsync(x =>
+            x.RefCode == request.StoreRefCode &&
+            x.IsActive &&
+            !x.IsDeleted);
+
+        if (store is null)
+            return BaseResponse<string>.Fail("Store not found");
+
+        var storeFoodIds = request.Items
+            .Select(x => x.StoreFoodId)
+            .Distinct()
+            .ToList();
+
+        var foods = await repoFood
+            .Query()
+            .Where(x =>
+                storeFoodIds.Contains(x.Id) &&
+                x.StoreRefCode == request.StoreRefCode &&
+                x.IsAvailable &&
+                !x.IsDeleted)
+            .ToListAsync();
+
+        if (foods.Count != storeFoodIds.Count)
+            return BaseResponse<string>.Fail("Food not found");
+
+        decimal totalAmount = 0;
+
+        foreach (var item in request.Items)
+        {
+            var food = foods.First(x => x.Id == item.StoreFoodId);
+
+            var optionAmount = item.Options?.Sum(x => x.AdditionalPrice) ?? 0;
+            var unitPrice = food.Price + optionAmount;
+            var totalPrice = unitPrice * item.Quantity;
+
+            totalAmount += totalPrice;
+        }
+
+        var customer = new Customer
+        {
+            RefCode = Guid.NewGuid().ToString().ToUpper(),
+            CustomerCode = GenerateCustomerCode(),
+            CustomerName = request.CustomerName.Trim(),
+            CreatedAt = DateTime.Now
+        };
+
+        await repoCustomer.AddAsync(customer);
+        await _unitOfWork.SaveChangesAsync();
+
+        var refCode = customer.RefCode;
+
+        var order = new Order
+        {
+            OrderCode = GenerateOrderCode(),
+            RefCode = refCode,
+            CustomerAccountId = null,
+            CustomerId = customer.Id,
+            StoreRefCode = request.StoreRefCode,
+            TotalAmount = totalAmount,
+            OrderStatus = "PENDING",
+            PaymentStatus = "UNPAID",
+            Note = request.Note,
+            CreatedAt = DateTime.Now,
+            CreatedBy = null
+        };
+
+        await repoOrder.AddAsync(order);
+        await _unitOfWork.SaveChangesAsync();
+
+        foreach (var item in request.Items)
+        {
+            var food = foods.First(x => x.Id == item.StoreFoodId);
+
+            var optionAmount = item.Options?.Sum(x => x.AdditionalPrice) ?? 0;
+            var unitPrice = food.Price + optionAmount;
+            var totalPrice = unitPrice * item.Quantity;
+
+            var orderItem = new OrderItem
+            {
+                RefCode = refCode,
+                OrderId = order.Id,
+                StoreFoodId = food.Id,
+                Quantity = item.Quantity,
+                UnitPrice = unitPrice,
+                TotalPrice = totalPrice,
+                CreatedAt = DateTime.Now,
+                CreatedBy = null
+            };
+
+            await repoOrderItem.AddAsync(orderItem);
+            await _unitOfWork.SaveChangesAsync();
+
+            if (item.Options != null && item.Options.Any())
+            {
+                foreach (var option in item.Options)
+                {
+                    await repoOrderItemOption.AddAsync(new OrderItemOption
+                    {
+                        RefCode = refCode,
+                        OrderItemId = orderItem.Id,
+                        OptionGroupId = option.OptionGroupId,
+                        OptionGroupName = option.OptionGroupName,
+                        OptionId = option.OptionId,
+                        OptionName = option.OptionName,
+                        AdditionalPrice = option.AdditionalPrice,
+                        CreatedAt = DateTime.Now,
+                        CreatedBy = null
+                    });
+                }
+            }
+        }
+
+        await repoOrderHistory.AddAsync(new OrderHistory
+        {
+            RefCode = refCode,
+            OrderId = order.Id,
+            OldStatus = null,
+            NewStatus = order.OrderStatus,
+            ChangedNote = order.Note,
+            CreatedAt = DateTime.Now,
+            CreatedBy = null
+        });
+
+        await _unitOfWork.SaveChangesAsync();
+
+        return BaseResponse<string>.Success("Create guest order successfully");
+    }
+
     public async Task<BaseTableResponse<OrderResponseDto>> GetMyOrdersAsync(long currentUserId, int page, int pageSize)
     {
         var repoOrder = _unitOfWork.GetRepository<Order>();
@@ -185,7 +332,7 @@ public class OrderService : IOrderService
                  Id = order.Id,
                  OrderCode = order.OrderCode,
                  RefCode = order.RefCode,
-                 CustomerAccountId = order.CustomerAccountId,
+                 CustomerAccountId = (long)order.CustomerAccountId,
 
                  CustomerName =
                      profile != null && !string.IsNullOrEmpty(profile.FullName)
@@ -276,7 +423,7 @@ public class OrderService : IOrderService
             Id = order.Id,
             OrderCode = order.OrderCode,
             RefCode = order.RefCode,
-            CustomerAccountId = order.CustomerAccountId,
+            CustomerAccountId = (long)order.CustomerAccountId,
             StoreRefCode = order.StoreRefCode,
             TotalAmount = order.TotalAmount,
             OrderStatus = order.OrderStatus,
@@ -294,6 +441,7 @@ public class OrderService : IOrderService
         var repoFood = _unitOfWork.GetRepository<StoreFood>();
         var repoAccount = _unitOfWork.GetRepository<Account>();
         var repoAccountProfile = _unitOfWork.GetRepository<AccountProfile>();
+        var repoCustomer = _unitOfWork.GetRepository<Customer>();
 
         page = page <= 0 ? 1 : page;
         pageSize = pageSize <= 0 ? 10 : pageSize;
@@ -309,12 +457,16 @@ public class OrderService : IOrderService
             from order in query
 
             join account in repoAccount.Query().AsNoTracking()
-                on order.CustomerAccountId equals account.Id
+                on order.CustomerAccountId equals account.Id into accountGroup
+            from account in accountGroup.DefaultIfEmpty()
 
             join profile in repoAccountProfile.Query().AsNoTracking()
                 on account.Id equals profile.AccountId into profileGroup
-
             from profile in profileGroup.DefaultIfEmpty()
+
+            join customer in repoCustomer.Query().AsNoTracking()
+                on order.CustomerId equals customer.Id into customerGroup
+            from customer in customerGroup.DefaultIfEmpty()
 
             orderby order.Id descending
 
@@ -323,12 +475,21 @@ public class OrderService : IOrderService
                 Id = order.Id,
                 OrderCode = order.OrderCode,
                 RefCode = order.RefCode,
-                CustomerAccountId = order.CustomerAccountId,
+
+                CustomerAccountId = (long)order.CustomerAccountId,
 
                 CustomerName =
-                    profile != null && !string.IsNullOrEmpty(profile.FullName)
-                        ? profile.FullName
-                        : account.Username,
+                    account != null
+                        ? (
+                            profile != null && !string.IsNullOrEmpty(profile.FullName)
+                                ? profile.FullName
+                                : account.Username
+                        )
+                        : (
+                            customer != null
+                                ? customer.CustomerName
+                                : "Khách vãng lai"
+                        ),
 
                 StoreRefCode = order.StoreRefCode,
                 TotalAmount = order.TotalAmount,
@@ -362,7 +523,9 @@ public class OrderService : IOrderService
                 TotalPrice = orderItem.TotalPrice
             })
             .ToListAsync();
+
         await FillOrderItemOptionsAsync(orderItems);
+
         foreach (var order in items)
         {
             order.Items = orderItems
@@ -466,6 +629,7 @@ public class OrderService : IOrderService
         var repoOrder = _unitOfWork.GetRepository<Order>();
         var repoAccount = _unitOfWork.GetRepository<Account>();
         var repoProfile = _unitOfWork.GetRepository<AccountProfile>();
+        var repoCustomer = _unitOfWork.GetRepository<Customer>();
         var repoOrderItem = _unitOfWork.GetRepository<OrderItem>();
         var repoOrderItemOption = _unitOfWork.GetRepository<OrderItemOption>();
         var repoStoreFood = _unitOfWork.GetRepository<StoreFood>();
@@ -484,21 +648,34 @@ public class OrderService : IOrderService
             .Select(x => x.Id)
             .ToList();
 
-        var customerIds = orders
-            .Select(x => x.CustomerAccountId)
+        var customerAccountIds = orders
+            .Where(x => x.CustomerAccountId.HasValue)
+            .Select(x => x.CustomerAccountId!.Value)
+            .Distinct()
+            .ToList();
+
+        var guestCustomerIds = orders
+            .Where(x => x.CustomerId.HasValue)
+            .Select(x => x.CustomerId!.Value)
             .Distinct()
             .ToList();
 
         var accounts = await repoAccount
             .Query()
             .AsNoTracking()
-            .Where(x => customerIds.Contains(x.Id))
+            .Where(x => customerAccountIds.Contains(x.Id))
             .ToListAsync();
 
         var profiles = await repoProfile
             .Query()
             .AsNoTracking()
-            .Where(x => customerIds.Contains(x.AccountId))
+            .Where(x => customerAccountIds.Contains(x.AccountId))
+            .ToListAsync();
+
+        var customers = await repoCustomer
+            .Query()
+            .AsNoTracking()
+            .Where(x => guestCustomerIds.Contains(x.Id))
             .ToListAsync();
 
         var orderItems = await repoOrderItem
@@ -530,8 +707,17 @@ public class OrderService : IOrderService
 
         var models = orders.Select(order =>
         {
-            var account = accounts.FirstOrDefault(x => x.Id == order.CustomerAccountId);
-            var profile = profiles.FirstOrDefault(x => x.AccountId == order.CustomerAccountId);
+            var account = order.CustomerAccountId.HasValue
+                ? accounts.FirstOrDefault(x => x.Id == order.CustomerAccountId.Value)
+                : null;
+
+            var profile = order.CustomerAccountId.HasValue
+                ? profiles.FirstOrDefault(x => x.AccountId == order.CustomerAccountId.Value)
+                : null;
+
+            var customer = order.CustomerId.HasValue
+                ? customers.FirstOrDefault(x => x.Id == order.CustomerId.Value)
+                : null;
 
             var items = orderItems
                 .Where(x => x.OrderId == order.Id)
@@ -565,7 +751,11 @@ public class OrderService : IOrderService
             return new PrintOrderViewModel
             {
                 OrderCode = order.OrderCode,
-                CustomerName = profile?.FullName ?? account?.Username ?? "Không rõ người đặt",
+                CustomerName =
+                    profile?.FullName
+                    ?? account?.Username
+                    ?? customer?.CustomerName
+                    ?? "Người lạ",
                 CustomerPhone = profile?.PhoneNumber,
                 CustomerAddress = profile?.Address,
                 OrderStatus = order.OrderStatus,
@@ -646,6 +836,27 @@ public class OrderService : IOrderService
         var totalOrders = orders.Count;
         var totalItems = orders.Sum(x => x.Items.Sum(i => i.Quantity));
 
+        var summaryItems = orders
+            .SelectMany(x => x.Items)
+            .GroupBy(x => x.FoodName)
+            .Select(foodGroup => new
+            {
+                FoodName = foodGroup.Key,
+                TotalQuantity = foodGroup.Sum(x => x.Quantity),
+                Variants = foodGroup
+                    .GroupBy(x => GetOptionKey(x.Options))
+                    .Select(optionGroup => new
+                    {
+                        Quantity = optionGroup.Sum(x => x.Quantity),
+                        OptionText = GetOptionDisplay(optionGroup.First().Options)
+                    })
+                    .OrderByDescending(x => x.Quantity)
+                    .ThenBy(x => x.OptionText)
+                    .ToList()
+            })
+            .OrderBy(x => x.FoodName)
+            .ToList();
+
         return Document.Create(container =>
         {
             container.Page(page =>
@@ -669,6 +880,42 @@ public class OrderService : IOrderService
 
                 page.Content().PaddingTop(14).Column(column =>
                 {
+                    column.Item().Text("TỔNG HỢP MÓN")
+                        .Bold()
+                        .FontSize(13);
+
+                    column.Item().PaddingTop(6);
+
+                    foreach (var summary in summaryItems)
+                    {
+                        column.Item().PaddingBottom(6).Column(summaryColumn =>
+                        {
+                            summaryColumn.Item().Text($"{summary.TotalQuantity} {summary.FoodName}")
+                                .SemiBold()
+                                .FontSize(10);
+
+                            foreach (var variant in summary.Variants)
+                            {
+                                summaryColumn.Item()
+                                    .PaddingLeft(10)
+                                    .Text($"{variant.Quantity} {variant.OptionText}")
+                                    .FontSize(8)
+                                    .FontColor(Colors.Grey.Darken1);
+                            }
+                        });
+                    }
+
+                    column.Item()
+                        .PaddingVertical(10)
+                        .LineHorizontal(1)
+                        .LineColor(Colors.Grey.Lighten2);
+
+                    column.Item().Text("CHI TIẾT ĐƠN")
+                        .Bold()
+                        .FontSize(13);
+
+                    column.Item().PaddingTop(8);
+
                     for (var orderIndex = 0; orderIndex < orderedOrders.Count; orderIndex++)
                     {
                         var order = orderedOrders[orderIndex];
@@ -688,12 +935,28 @@ public class OrderService : IOrderService
                                 customer.Item().Text(order.CustomerName)
                                     .Bold()
                                     .FontSize(12);
+
+                                if (!string.IsNullOrWhiteSpace(order.OrderCode))
+                                {
+                                    customer.Item().Text(order.OrderCode)
+                                        .FontSize(8)
+                                        .FontColor(Colors.Grey.Darken1);
+                                }
                             });
 
                             row.ConstantItem(110).AlignRight().Text(FormatCurrency(order.TotalAmount))
                                 .Bold()
                                 .FontSize(11);
                         });
+
+                        if (!string.IsNullOrWhiteSpace(order.Note))
+                        {
+                            column.Item()
+                                .PaddingTop(4)
+                                .Text($"Ghi chú: {order.Note}")
+                                .FontSize(8)
+                                .FontColor(Colors.Grey.Darken1);
+                        }
 
                         column.Item().PaddingTop(8);
 
@@ -711,9 +974,13 @@ public class OrderService : IOrderService
                                     {
                                         foreach (var option in item.Options)
                                         {
+                                            var optionPriceText = option.AdditionalPrice > 0
+                                                ? $" ({FormatCurrency(option.AdditionalPrice)})"
+                                                : "";
+
                                             itemColumn.Item()
                                                 .PaddingLeft(8)
-                                                .Text($"+ {option.GroupName}: {option.OptionName} ({FormatCurrency(option.AdditionalPrice)})")
+                                                .Text($"+ {option.GroupName}: {option.OptionName}{optionPriceText}")
                                                 .FontSize(8)
                                                 .FontColor(Colors.Grey.Darken1);
                                         }
@@ -751,5 +1018,41 @@ public class OrderService : IOrderService
                 });
             });
         }).GeneratePdf();
+    }
+
+    private string GetOptionKey(List<PrintOrderItemOptionViewModel>? options)
+    {
+        if (options == null || !options.Any())
+            return "";
+
+        return string.Join(" | ", options
+            .OrderBy(x => x.GroupName)
+            .ThenBy(x => x.OptionName)
+            .Select(x => $"{x.GroupName}:{x.OptionName}"));
+    }
+
+    private string GetOptionDisplay(List<PrintOrderItemOptionViewModel>? options)
+    {
+        if (options == null || !options.Any())
+            return "không option";
+
+        return string.Join(", ", options
+            .OrderBy(x => x.GroupName)
+            .ThenBy(x => x.OptionName)
+            .Select(x => x.OptionName));
+    }
+
+    private static string GenerateCustomerCode()
+    {
+        const string chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+        var random = new Random();
+
+        var suffix = new string(
+            Enumerable.Range(0, 20)
+                .Select(_ => chars[random.Next(chars.Length)])
+                .ToArray()
+        );
+
+        return $"CUS-{suffix}";
     }
 }

@@ -8,7 +8,7 @@
 
         public string RefCode { get; set; }
 
-        public long CustomerAccountId { get; set; }
+        public long? CustomerAccountId { get; set; }
 
         public string StoreRefCode { get; set; }
 

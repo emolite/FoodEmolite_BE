@@ -26,19 +26,24 @@ namespace FoodEmolite.Application.DTOs.StoreFood
 
     public class StoreFoodOptionGroupRequestDto
     {
+        public long? Id { get; set; }
         public string GroupName { get; set; }
         public bool IsRequired { get; set; }
         public int MinSelect { get; set; }
         public int MaxSelect { get; set; }
         public int SortOrder { get; set; }
+        public bool IsDeleted { get; set; }
+
         public List<StoreFoodOptionRequestDto> Options { get; set; } = new();
     }
 
     public class StoreFoodOptionRequestDto
     {
+        public long? Id { get; set; }
         public string OptionName { get; set; }
         public decimal AdditionalPrice { get; set; }
         public bool IsAvailable { get; set; } = true;
         public int SortOrder { get; set; }
+        public bool IsDeleted { get; set; }
     }
 }

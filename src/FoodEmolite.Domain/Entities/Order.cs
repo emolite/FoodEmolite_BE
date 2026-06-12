@@ -8,7 +8,10 @@ namespace FoodEmolite.Domain.Entities;
 public class Order : BaseEntity
 {
     [Column("customer_account_id")]
-    public long CustomerAccountId { get; set; }
+    public long? CustomerAccountId { get; set; }
+
+    [Column("customer_id")]
+    public long? CustomerId { get; set; }
 
     [Column("order_code")]
     public string OrderCode { get; set; }
