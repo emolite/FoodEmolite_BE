@@ -1,5 +1,6 @@
 ﻿using FoodEmolite.Application.DTOs.Order;
 using FoodEmolite.Application.Interfaces;
+using FoodEmolite.Shared.Entities;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -57,14 +58,10 @@ public class OrderController : BaseApiController
         return Ok(result);
     }
 
-    [HttpGet("store/{storeRefCode}")]
-    public async Task<IActionResult> GetByStoreRefCode(string storeRefCode, [FromQuery] int page = 1, [FromQuery] int pageSize = 10)
+    [HttpPost("store/search")]
+    public async Task<IActionResult> GetByStoreRefCode([FromBody] BaseSearchRequest<OrderSearchRequest> request)
     {
-        var result = await _orderService.GetByStoreRefCodeAsync(
-            storeRefCode,
-            page,
-            pageSize);
-
+        var result = await _orderService.GetByStoreRefCodeAsync(request);
         return Ok(result);
     }
 

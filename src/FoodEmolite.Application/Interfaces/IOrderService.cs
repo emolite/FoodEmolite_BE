@@ -1,4 +1,5 @@
 ﻿using FoodEmolite.Application.DTOs.Order;
+using FoodEmolite.Shared.Entities;
 using FoodEmolite.Shared.Responses;
 
 namespace FoodEmolite.Application.Interfaces;
@@ -11,7 +12,7 @@ public interface IOrderService
 
     Task<BaseResponse<OrderResponseDto>> GetDetailAsync(long id, long currentUserId);
 
-    Task<BaseTableResponse<OrderResponseDto>> GetByStoreRefCodeAsync(string storeRefCode, int page, int pageSize);
+    Task<BaseTableResponse<OrderResponseDto>> GetByStoreRefCodeAsync(BaseSearchRequest<OrderSearchRequest> request);
 
     Task<BaseResponse<string>> UpdateStatusAsync(long id, long currentUserId, string refCode, UpdateOrderStatusRequestDto request);
 

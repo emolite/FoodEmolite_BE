@@ -3,6 +3,7 @@ using FoodEmolite.Application.DTOs.Print;
 using FoodEmolite.Application.Interfaces;
 using FoodEmolite.Domain.Entities;
 using FoodEmolite.Domain.Interfaces;
+using FoodEmolite.Shared.Entities;
 using FoodEmolite.Shared.Responses;
 using Microsoft.EntityFrameworkCore;
 using QuestPDF.Fluent;
@@ -434,7 +435,7 @@ public class OrderService : IOrderService
         });
     }
 
-    public async Task<BaseTableResponse<OrderResponseDto>> GetByStoreRefCodeAsync(string storeRefCode, int page, int pageSize)
+    public async Task<BaseTableResponse<OrderResponseDto>> GetByStoreRefCodeAsync(BaseSearchRequest<OrderSearchRequest> request)
     {
         var repoOrder = _unitOfWork.GetRepository<Order>();
         var repoOrderItem = _unitOfWork.GetRepository<OrderItem>();
@@ -443,17 +444,42 @@ public class OrderService : IOrderService
         var repoAccountProfile = _unitOfWork.GetRepository<AccountProfile>();
         var repoCustomer = _unitOfWork.GetRepository<Customer>();
 
-        page = page <= 0 ? 1 : page;
-        pageSize = pageSize <= 0 ? 10 : pageSize;
+        request.Page = request.Page <= 0 ? 1 : request.Page;
+        request.PageSize = request.PageSize <= 0 ? 10 : request.PageSize;
+
+        var search = request.SearchParams;
 
         var query = repoOrder
             .Query()
             .AsNoTracking()
-            .Where(x => x.StoreRefCode == storeRefCode);
+            .Where(x =>
+                search != null &&
+                !string.IsNullOrWhiteSpace(search.StoreRefCode) &&
+                x.StoreRefCode == search.StoreRefCode);
 
-        var totalRecords = await query.CountAsync();
+        if (!string.IsNullOrWhiteSpace(search?.OrderStatus))
+        {
+            query = query.Where(x => x.OrderStatus == search.OrderStatus);
+        }
 
-        var items = await (
+        if (!string.IsNullOrWhiteSpace(search?.PaymentStatus))
+        {
+            query = query.Where(x => x.PaymentStatus == search.PaymentStatus);
+        }
+
+        if (search?.FromDate != null)
+        {
+            var fromDate = search.FromDate.Value.Date;
+            query = query.Where(x => x.CreatedAt >= fromDate);
+        }
+
+        if (search?.ToDate != null)
+        {
+            var toDate = search.ToDate.Value.Date.AddDays(1);
+            query = query.Where(x => x.CreatedAt < toDate);
+        }
+
+        var projectedQuery =
             from order in query
 
             join account in repoAccount.Query().AsNoTracking()
@@ -467,8 +493,6 @@ public class OrderService : IOrderService
             join customer in repoCustomer.Query().AsNoTracking()
                 on order.CustomerId equals customer.Id into customerGroup
             from customer in customerGroup.DefaultIfEmpty()
-
-            orderby order.Id descending
 
             select new OrderResponseDto
             {
@@ -498,9 +522,40 @@ public class OrderService : IOrderService
                 Note = order.Note,
                 CreatedAt = order.CreatedAt,
                 Items = new List<OrderItemResponseDto>()
-            })
-            .Skip((page - 1) * pageSize)
-            .Take(pageSize)
+            };
+
+        if (!string.IsNullOrWhiteSpace(search?.Keyword))
+        {
+            var keyword = search.Keyword.Trim().ToLower();
+
+            projectedQuery = projectedQuery.Where(x =>
+                x.OrderCode.ToLower().Contains(keyword) ||
+                x.RefCode.ToLower().Contains(keyword) ||
+                x.CustomerName.ToLower().Contains(keyword) ||
+                (x.Note != null && x.Note.ToLower().Contains(keyword))
+            );
+        }
+        var totalRecords = await query.CountAsync();
+        projectedQuery = request.SortBy switch
+        {
+            "totalAmount" => request.Asc
+                ? projectedQuery.OrderBy(x => x.TotalAmount)
+                : projectedQuery.OrderByDescending(x => x.TotalAmount),
+
+            "createdAt" => request.Asc
+                ? projectedQuery.OrderBy(x => x.CreatedAt)
+                : projectedQuery.OrderByDescending(x => x.CreatedAt),
+
+            "orderCode" => request.Asc
+                ? projectedQuery.OrderBy(x => x.OrderCode)
+                : projectedQuery.OrderByDescending(x => x.OrderCode),
+
+            _ => projectedQuery.OrderByDescending(x => x.Id)
+        };
+
+        var items = await projectedQuery
+            .Skip((request.Page - 1) * request.PageSize)
+            .Take(request.PageSize)
             .ToListAsync();
 
         var orderIds = items
@@ -536,8 +591,8 @@ public class OrderService : IOrderService
         return new BaseTableResponse<OrderResponseDto>
         {
             Items = items,
-            Page = page,
-            PageSize = pageSize,
+            Page = request.Page,
+            PageSize = request.PageSize,
             TotalRecords = totalRecords
         };
     }
