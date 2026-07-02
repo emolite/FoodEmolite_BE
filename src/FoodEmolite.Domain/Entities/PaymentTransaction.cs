@@ -10,7 +10,7 @@ public class PaymentTransaction : BaseEntity
     public string? Gateway { get; set; }
 
     [Column("transaction_id")]
-    public string? TransactionId { get; set; }
+    public long? TransactionId { get; set; }
 
     [Column("reference_code")]
     public string? ReferenceCode { get; set; }

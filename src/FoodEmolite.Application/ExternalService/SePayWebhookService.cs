@@ -4,6 +4,7 @@ using FoodEmolite.Application.ExternalService.Interfaces;
 using FoodEmolite.Domain.Entities;
 using FoodEmolite.Domain.Interfaces;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 
 public class SePayWebhookService : ISePayWebhookService
 {
@@ -18,25 +19,24 @@ public class SePayWebhookService : ISePayWebhookService
     {
         var repoTransaction = _unitOfWork.GetRepository<PaymentTransaction>();
         var repoOrder = _unitOfWork.GetRepository<Order>();
-
         var now = DateTime.Now;
 
         var existed = await repoTransaction.FirstOrDefaultAsync(x =>
             x.TransactionId == request.TransactionId);
-
         if (existed != null)
             return;
 
-        var orderCode = request.Content?.Replace("ORDER_", "");
+        var orderCode = ExtractOrderCode(request.Content);
 
-        var order = await repoOrder.FirstOrDefaultAsync(x =>
-            x.OrderCode == orderCode);
+        var order = orderCode != null
+            ? await repoOrder.FirstOrDefaultAsync(x => x.OrderCode == orderCode)
+            : null;
 
         var transaction = new PaymentTransaction
         {
             Gateway = "SEPAY",
             TransactionId = request.TransactionId,
-            ReferenceCode = orderCode,
+            ReferenceCode = request.ReferenceCode,
             AccountNumber = request.AccountNumber,
             TransferAmount = request.Amount,
             Content = request.Content,
@@ -57,5 +57,13 @@ public class SePayWebhookService : ISePayWebhookService
         }
 
         await _unitOfWork.SaveChangesAsync();
+    }
+
+    private static string? ExtractOrderCode(string? content)
+    {
+        if (string.IsNullOrEmpty(content)) return null;
+
+        var match = Regex.Match(content, @"ORDER(?<code>[A-Za-z0-9]+)\.CT");
+        return match.Success ? match.Groups["code"].Value : null;
     }
 }
