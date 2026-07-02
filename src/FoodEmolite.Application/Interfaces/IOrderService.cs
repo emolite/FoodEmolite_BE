@@ -6,8 +6,8 @@ namespace FoodEmolite.Application.Interfaces;
 
 public interface IOrderService
 {
-    Task<BaseResponse<string>> CreateAsync(long currentUserId, string refCode, CreateOrderRequestDto request);
-    Task<BaseResponse<string>> CreateGuestAsync(CreateGuestOrderRequestDto request);
+    Task<BaseResponse<CreateOrderResponseDto>> CreateAsync(long currentUserId, string refCode, CreateOrderRequestDto request);
+    Task<BaseResponse<CreateOrderResponseDto>> CreateGuestAsync(CreateGuestOrderRequestDto request);
     Task<BaseTableResponse<OrderResponseDto>> GetMyOrdersAsync(long currentUserId, int page, int pageSize);
 
     Task<BaseResponse<OrderResponseDto>> GetDetailAsync(long id, long currentUserId);
@@ -19,4 +19,6 @@ public interface IOrderService
     Task<BaseResponse<string>> UpdatePaymentStatusAsync(long id, long currentUserId, string refCode, UpdatePaymentStatusRequestDto request);
 
     Task<BaseResponse<byte[]>> PrintOrdersAsync(long currentUserId, PrintOrdersRequestDto request);
+
+    Task<BaseResponse<string>> GetPaymentStatusAsync(string orderCode);
 }

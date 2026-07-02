@@ -103,4 +103,12 @@ public class OrderController : BaseApiController
             $"orders-{DateTime.Now:yyyyMMddHHmmss}.pdf"
         );
     }
+
+    [AllowAnonymous]
+    [HttpGet("{orderCode}/payment-status")]
+    public async Task<IActionResult> GetPaymentStatus(string orderCode)
+    {
+        var result = await _orderService.GetPaymentStatusAsync(orderCode);
+        return Ok(result);
+    }
 }

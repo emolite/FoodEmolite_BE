@@ -21,7 +21,7 @@ public class OrderService : IOrderService
         _unitOfWork = unitOfWork;
     }
 
-    public async Task<BaseResponse<string>> CreateAsync(long currentUserId, string refCode, CreateOrderRequestDto request)
+    public async Task<BaseResponse<CreateOrderResponseDto>> CreateAsync(long currentUserId, string refCode, CreateOrderRequestDto request)
     {
         var repoStore = _unitOfWork.GetRepository<Store>();
         var repoFood = _unitOfWork.GetRepository<StoreFood>();
@@ -31,10 +31,10 @@ public class OrderService : IOrderService
         var repoOrderHistory = _unitOfWork.GetRepository<OrderHistory>();
 
         if (request.Items == null || !request.Items.Any())
-            return BaseResponse<string>.Fail("Order item is required");
+            return BaseResponse<CreateOrderResponseDto>.Fail("Order item is required");
 
         if (request.Items.Any(x => x.Quantity <= 0))
-            return BaseResponse<string>.Fail("Quantity must be greater than 0");
+            return BaseResponse<CreateOrderResponseDto>.Fail("Quantity must be greater than 0");
 
         var store = await repoStore.FirstOrDefaultAsync(x =>
             x.RefCode == request.StoreRefCode &&
@@ -42,7 +42,7 @@ public class OrderService : IOrderService
             !x.IsDeleted);
 
         if (store is null)
-            return BaseResponse<string>.Fail("Store not found");
+            return BaseResponse<CreateOrderResponseDto>.Fail("Store not found");
 
         var storeFoodIds = request.Items
             .Select(x => x.StoreFoodId)
@@ -59,7 +59,7 @@ public class OrderService : IOrderService
             .ToListAsync();
 
         if (foods.Count != storeFoodIds.Count)
-            return BaseResponse<string>.Fail("Food not found");
+            return BaseResponse<CreateOrderResponseDto>.Fail("Food not found");
 
         decimal totalAmount = 0;
 
@@ -147,10 +147,17 @@ public class OrderService : IOrderService
 
         await _unitOfWork.SaveChangesAsync();
 
-        return BaseResponse<string>.Success("Create order successfully");
+        return BaseResponse<CreateOrderResponseDto>.Success(
+            new CreateOrderResponseDto
+            {
+                OrderId = order.Id,
+                OrderCode = order.OrderCode,
+                PaymentStatus = order.PaymentStatus,
+                TotalAmount = order.TotalAmount
+            });
     }
 
-    public async Task<BaseResponse<string>> CreateGuestAsync(CreateGuestOrderRequestDto request)
+    public async Task<BaseResponse<CreateOrderResponseDto>> CreateGuestAsync(CreateGuestOrderRequestDto request)
     {
         var repoStore = _unitOfWork.GetRepository<Store>();
         var repoFood = _unitOfWork.GetRepository<StoreFood>();
@@ -161,13 +168,13 @@ public class OrderService : IOrderService
         var repoCustomer = _unitOfWork.GetRepository<Customer>();
 
         if (string.IsNullOrWhiteSpace(request.CustomerName))
-            return BaseResponse<string>.Fail("Customer name is required");
+            return BaseResponse<CreateOrderResponseDto>.Fail("Customer name is required");
 
         if (request.Items == null || !request.Items.Any())
-            return BaseResponse<string>.Fail("Order item is required");
+            return BaseResponse<CreateOrderResponseDto>.Fail("Order item is required");
 
         if (request.Items.Any(x => x.Quantity <= 0))
-            return BaseResponse<string>.Fail("Quantity must be greater than 0");
+            return BaseResponse<CreateOrderResponseDto>.Fail("Quantity must be greater than 0");
 
         var store = await repoStore.FirstOrDefaultAsync(x =>
             x.RefCode == request.StoreRefCode &&
@@ -175,7 +182,7 @@ public class OrderService : IOrderService
             !x.IsDeleted);
 
         if (store is null)
-            return BaseResponse<string>.Fail("Store not found");
+            return BaseResponse<CreateOrderResponseDto>.Fail("Store not found");
 
         var storeFoodIds = request.Items
             .Select(x => x.StoreFoodId)
@@ -192,7 +199,7 @@ public class OrderService : IOrderService
             .ToListAsync();
 
         if (foods.Count != storeFoodIds.Count)
-            return BaseResponse<string>.Fail("Food not found");
+            return BaseResponse<CreateOrderResponseDto>.Fail("Food not found");
 
         decimal totalAmount = 0;
 
@@ -294,7 +301,14 @@ public class OrderService : IOrderService
 
         await _unitOfWork.SaveChangesAsync();
 
-        return BaseResponse<string>.Success("Create guest order successfully");
+        return BaseResponse<CreateOrderResponseDto>.Success(
+            new CreateOrderResponseDto
+            {
+                OrderId = order.Id,
+                OrderCode = order.OrderCode,
+                PaymentStatus = order.PaymentStatus,
+                TotalAmount = order.TotalAmount
+            });
     }
 
     public async Task<BaseTableResponse<OrderResponseDto>> GetMyOrdersAsync(long currentUserId, int page, int pageSize)
@@ -825,6 +839,16 @@ public class OrderService : IOrderService
         var pdfBytes = BuildOrdersPdf(models);
 
         return BaseResponse<byte[]>.Success(pdfBytes);
+    }
+
+    public async Task<BaseResponse<string>> GetPaymentStatusAsync(string orderCode)
+    {
+        var repoOrder = _unitOfWork.GetRepository<Order>();
+        var order = await repoOrder.FirstOrDefaultAsync(x => x.OrderCode == orderCode);
+
+        if (order is null) return BaseResponse<string>.Fail("Order not found");
+
+        return BaseResponse<string>.Success(order.PaymentStatus);
     }
 
     private async Task FillOrderItemOptionsAsync(List<OrderItemResponseDto> orderItems)

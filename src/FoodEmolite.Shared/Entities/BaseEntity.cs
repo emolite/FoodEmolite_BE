@@ -11,7 +11,7 @@ public class BaseEntity
     public long Id { get; set; }
 
     [Column("ref_code")]
-    public string RefCode { get; set; }
+    public string? RefCode { get; set; }
 
     [Column("created_at")]
     public DateTime CreatedAt { get; set; }

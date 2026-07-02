@@ -80,7 +80,7 @@ namespace FoodEmolite.API.Controllers
             return Ok(result);
         }
 
-        [HttpPut("bank-accounts/{refCode}")]
+        [HttpPut("bank-accounts")]
         public async Task<IActionResult> UpdateBankAccount([FromBody] UpdateBankAccountRequestDto request)
         {
             var result = await _profileService.UpdateBankAccountAsync(

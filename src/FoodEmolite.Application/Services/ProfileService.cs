@@ -337,7 +337,7 @@ public class ProfileService : IProfileService
             return BaseResponse<StorePaymentInfoResponseDto>.Fail("Bank account not found");
 
         var accountName = Uri.EscapeDataString(bankAccount.AccountHolderName ?? "");
-        var addInfo = Uri.EscapeDataString($"Thanh toan don hang {orderCode}");
+        var addInfo = Uri.EscapeDataString($"ORDER_{orderCode}");
         var amountValue = Math.Round(amount, 0);
 
         var vietQrUrl =
