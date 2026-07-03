@@ -30,4 +30,7 @@ public class Order : BaseEntity
 
     [Column("note")]
     public string? Note { get; set; }
+
+    [Column("is_delete")]
+    public bool IsDelete { get; set; }
 }

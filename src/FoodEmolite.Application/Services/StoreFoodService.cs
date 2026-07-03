@@ -371,12 +371,15 @@ public class StoreFoodService : IStoreFoodService
         };
     }
 
-    public async Task<BaseTableResponse<StoreFoodResponseDto>> GetByStoreRefCodeAsync(string storeRefCode, int page, int pageSize)
+    public async Task<BaseTableResponse<StoreFoodResponseDto>> GetByStoreRefCodeAsync(string storeRefCode, int page, int pageSize, long? storeFoodCategoryId)
     {
         var repoStoreFood = _unitOfWork.GetRepository<StoreFood>();
 
         page = page <= 0 ? 1 : page;
-        pageSize = pageSize <= 0 ? 10 : pageSize;
+
+        pageSize = pageSize <= 0
+            ? 10
+            : pageSize;
 
         var query = repoStoreFood
             .Query()
@@ -385,7 +388,15 @@ public class StoreFoodService : IStoreFoodService
                 x.StoreRefCode == storeRefCode &&
                 !x.IsDeleted);
 
-        var totalRecords = await query.CountAsync();
+        if (storeFoodCategoryId.HasValue)
+        {
+            query = query.Where(x =>
+                x.StoreFoodCategoryId ==
+                storeFoodCategoryId.Value);
+        }
+
+        var totalRecords =
+            await query.CountAsync();
 
         var items = await query
             .OrderByDescending(x => x.Id)
@@ -395,14 +406,26 @@ public class StoreFoodService : IStoreFoodService
             {
                 Id = x.Id,
                 RefCode = x.RefCode,
+
                 StoreRefCode = x.StoreRefCode,
+
+                StoreFoodCategoryId = x.StoreFoodCategoryId,
+
                 FoodName = x.FoodName,
-                ThumbnailUrl = !string.IsNullOrWhiteSpace(x.ThumbnailUrl)
-                    ? _cloudinaryService.BuildImageUrl(x.ThumbnailUrl)
+
+                ThumbnailUrl =
+                    !string.IsNullOrWhiteSpace(
+                        x.ThumbnailUrl)
+                    ? _cloudinaryService.BuildImageUrl(
+                        x.ThumbnailUrl)
                     : null,
+
                 Description = x.Description,
+
                 Price = x.Price,
+
                 Quantity = x.Quantity,
+
                 IsAvailable = x.IsAvailable
             })
             .ToListAsync();

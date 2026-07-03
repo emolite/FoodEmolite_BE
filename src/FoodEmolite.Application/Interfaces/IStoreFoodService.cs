@@ -18,7 +18,8 @@ public interface IStoreFoodService
     Task<BaseTableResponse<StoreFoodResponseDto>> GetByStoreRefCodeAsync(
         string storeRefCode,
         int page,
-        int pageSize);
+        int pageSize,
+        long? storeFoodCategoryId);
 
     Task<BaseResponse<StoreFoodResponseDto>> GetDetailAsync(long id);
 }

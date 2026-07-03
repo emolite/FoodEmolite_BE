@@ -133,6 +133,14 @@ public class RevenueService : IRevenueService
             orderQuery = orderQuery.Where(x => x.CreatedAt <= toDate.Value);
         }
 
+        var allOrders = await orderQuery
+            .Select(x => new
+            {
+                x.OrderStatus,
+                x.TotalAmount
+            })
+            .ToListAsync();
+
         var paidOrderQuery = orderQuery
             .Where(x => x.PaymentStatus == "PAID");
 
@@ -158,7 +166,7 @@ public class RevenueService : IRevenueService
             }).ToList(),
             groupBy);
 
-        var pieChart = paidOrders
+        var pieChart = allOrders
             .GroupBy(x => x.OrderStatus)
             .Select(g => new RevenuePieChartDto
             {
@@ -178,7 +186,7 @@ public class RevenueService : IRevenueService
     }
 
     private static List<RevenueLineChartDto> BuildLineChart(
-        List<RevenueRawItem> items,
+        List<RevenueRawItem> items, 
         string groupBy)
     {
         if (groupBy == "month")
