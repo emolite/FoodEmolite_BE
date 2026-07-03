@@ -18,6 +18,8 @@ public interface IOrderService
 
     Task<BaseResponse<string>> UpdatePaymentStatusAsync(long id, long currentUserId, string refCode, UpdatePaymentStatusRequestDto request);
 
+    Task<BaseResponse<string>> CancelAsync(long id, long currentUserId, string refCode);
+
     Task<BaseResponse<byte[]>> PrintOrdersAsync(long currentUserId, PrintOrdersRequestDto request);
 
     Task<BaseResponse<string>> GetPaymentStatusAsync(string orderCode);

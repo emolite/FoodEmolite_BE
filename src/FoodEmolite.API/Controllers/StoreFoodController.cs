@@ -55,9 +55,9 @@ public class StoreFoodController : BaseApiController
 
     [AllowAnonymous]
     [HttpGet("store/{storeRefCode}")]
-    public async Task<IActionResult> GetByStoreRefCode(string storeRefCode, [FromQuery] int page = 1, [FromQuery] int pageSize = 10)
+    public async Task<IActionResult> GetByStoreRefCode(string storeRefCode, [FromQuery] int page = 1, [FromQuery] int pageSize = 10, long? storeFoodCategoryId = null)
     {
-        var result = await _storeFoodService.GetByStoreRefCodeAsync(storeRefCode, page, pageSize);
+        var result = await _storeFoodService.GetByStoreRefCodeAsync(storeRefCode, page, pageSize, storeFoodCategoryId);
 
         return Ok(result);
     }

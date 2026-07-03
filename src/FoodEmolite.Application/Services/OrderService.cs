@@ -686,6 +686,46 @@ public class OrderService : IOrderService
         return BaseResponse<string>.Success("Update payment status successfully");
     }
 
+    public async Task<BaseResponse<string>> CancelAsync(long id, long currentUserId, string refCode)
+    {
+        var repoOrder = _unitOfWork.GetRepository<Order>();
+        var repoOrderHistory = _unitOfWork.GetRepository<OrderHistory>();
+
+        var order = await repoOrder.FirstOrDefaultAsync(x => x.Id == id);
+
+        if (order is null)
+            return BaseResponse<string>.Fail("Order not found");
+
+        if (order.OrderStatus == "CANCELLED")
+            return BaseResponse<string>.Fail("Order is already cancelled");
+
+        if (order.OrderStatus == "COMPLETED")
+            return BaseResponse<string>.Fail("Cannot cancel a completed order");
+
+        var oldStatus = order.OrderStatus;
+
+        order.OrderStatus = "CANCELLED";
+        order.UpdatedAt = DateTime.Now;
+        order.UpdatedBy = currentUserId;
+
+        repoOrder.Update(order);
+
+        await repoOrderHistory.AddAsync(new OrderHistory
+        {
+            RefCode = refCode,
+            OrderId = order.Id,
+            OldStatus = oldStatus,
+            NewStatus = "CANCELLED",
+            ChangedNote = null,
+            CreatedAt = DateTime.Now,
+            CreatedBy = currentUserId
+        });
+
+        await _unitOfWork.SaveChangesAsync();
+
+        return BaseResponse<string>.Success("Cancel order successfully");
+    }
+
     public async Task<BaseResponse<byte[]>> PrintOrdersAsync(long currentUserId, PrintOrdersRequestDto request)
     {
         if (request.OrderIds == null || !request.OrderIds.Any())

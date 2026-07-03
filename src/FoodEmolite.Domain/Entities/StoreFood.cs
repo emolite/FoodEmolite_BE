@@ -30,4 +30,7 @@ public class StoreFood : BaseEntity
 
     [Column("is_deleted")]
     public bool IsDeleted { get; set; } = false;
+
+    [Column("store_food_category_id")]
+    public long StoreFoodCategoryId { get; set; }
 }

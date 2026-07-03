@@ -90,6 +90,13 @@ public class OrderController : BaseApiController
         return Ok(response);
     }
 
+    [HttpPut("{id}/cancel")]
+    public async Task<IActionResult> CancelOrders(long id)
+    {
+        var result = await _orderService.CancelAsync(id, CurrentUserId.Value, CurrentUserRefCode);
+        return Ok(result);
+    }
+
     [HttpPost("print")]
     public async Task<IActionResult> PrintOrders([FromBody] PrintOrdersRequestDto request)
     {
