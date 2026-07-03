@@ -38,6 +38,7 @@ namespace FoodEmolite.API.Controllers
             return Ok(result);
         }
 
+        [AllowAnonymous]
         [HttpGet("store-payment/{storeRefCode}")]
         public async Task<IActionResult> GetStorePaymentInfo(string storeRefCode, [FromQuery] decimal amount,[FromQuery] string orderCode)
         {
