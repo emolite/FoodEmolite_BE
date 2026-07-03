@@ -844,9 +844,25 @@ public class OrderService : IOrderService
     public async Task<BaseResponse<string>> GetPaymentStatusAsync(string orderCode)
     {
         var repoOrder = _unitOfWork.GetRepository<Order>();
+        var repoTransaction = _unitOfWork.GetRepository<PaymentTransaction>();
+
         var order = await repoOrder.FirstOrDefaultAsync(x => x.OrderCode == orderCode);
 
         if (order is null) return BaseResponse<string>.Fail("Order not found");
+
+        if (order.PaymentStatus != "PAID")
+        {
+            var paidTransaction = await repoTransaction.FirstOrDefaultAsync(x =>
+                x.OrderId == order.Id &&
+                x.IsProcessed &&
+                !x.IsDeleted);
+
+            if (paidTransaction != null)
+            {
+                order.PaymentStatus = "PAID";
+                await _unitOfWork.SaveChangesAsync();
+            }
+        }
 
         return BaseResponse<string>.Success(order.PaymentStatus);
     }

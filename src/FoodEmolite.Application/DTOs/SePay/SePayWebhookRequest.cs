@@ -14,6 +14,9 @@ namespace FoodEmolite.Application.DTOs.SePay
         [JsonPropertyName("transferAmount")]
         public long Amount { get; set; }
 
+        [JsonPropertyName("accumulated")]
+        public long? Accumulated { get; set; }
+
         public string? Description { get; set; }
 
         public string? Gateway { get; set; }

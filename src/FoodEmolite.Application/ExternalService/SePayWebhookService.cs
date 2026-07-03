@@ -38,13 +38,17 @@ public class SePayWebhookService : ISePayWebhookService
             TransactionId = request.TransactionId,
             ReferenceCode = request.ReferenceCode,
             AccountNumber = request.AccountNumber,
+            TransferType = request.TransferType,
             TransferAmount = request.Amount,
+            Accumulated = request.Accumulated,
             Content = request.Content,
             Description = request.Description,
             TransactionDate = now,
             RawData = JsonSerializer.Serialize(request),
             IsProcessed = false,
-            OrderId = order?.Id
+            IsDeleted = false,
+            OrderId = order?.Id,
+            CreatedAt = now,
         };
 
         await repoTransaction.AddAsync(transaction);
