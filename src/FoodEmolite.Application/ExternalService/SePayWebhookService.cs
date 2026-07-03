@@ -29,7 +29,7 @@ public class SePayWebhookService : ISePayWebhookService
         var orderCode = ExtractOrderCode(request.Content);
 
         var order = orderCode != null
-            ? await repoOrder.FirstOrDefaultAsync(x => x.OrderCode == orderCode)
+            ? await repoOrder.FirstOrDefaultAsync(x => x.OrderCode.Replace("-", "") == orderCode)
             : null;
 
         var transaction = new PaymentTransaction
