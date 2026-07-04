@@ -56,6 +56,7 @@ public class StoreFoodService : IStoreFoodService
             Description = request.Description,
             Price = request.Price,
             Quantity = request.Quantity,
+            StoreFoodCategoryId = request.StoreFoodCategoryId,
             IsAvailable = true,
             IsDeleted = false,
             CreatedAt = DateTime.Now
@@ -136,6 +137,7 @@ public class StoreFoodService : IStoreFoodService
         storeFood.Price = request.Price;
         storeFood.Quantity = request.Quantity;
         storeFood.IsAvailable = request.IsAvailable;
+        storeFood.StoreFoodCategoryId = request.StoreFoodCategoryId;
         storeFood.UpdatedAt = DateTime.Now;
 
         repoStoreFood.Update(storeFood);
@@ -371,32 +373,27 @@ public class StoreFoodService : IStoreFoodService
         };
     }
 
-    public async Task<BaseTableResponse<StoreFoodResponseDto>> GetByStoreRefCodeAsync(string storeRefCode, int page, int pageSize, long? storeFoodCategoryId)
+    public async Task<BaseTableResponse<StoreFoodResponseDto>> GetByStoreRefCodeAsync(GetStoreFoodsRequest request)
     {
         var repoStoreFood = _unitOfWork.GetRepository<StoreFood>();
 
-        page = page <= 0 ? 1 : page;
-
-        pageSize = pageSize <= 0
-            ? 10
-            : pageSize;
+        var page = request.Page <= 0 ? 1 : request.Page;
+        var pageSize = request.PageSize <= 0 ? 10 : request.PageSize;
 
         var query = repoStoreFood
             .Query()
             .AsNoTracking()
             .Where(x =>
-                x.StoreRefCode == storeRefCode &&
+                x.StoreRefCode == request.StoreRefCode &&
                 !x.IsDeleted);
 
-        if (storeFoodCategoryId.HasValue)
+        if (request.StoreFoodCategoryId.HasValue)
         {
             query = query.Where(x =>
-                x.StoreFoodCategoryId ==
-                storeFoodCategoryId.Value);
+                x.StoreFoodCategoryId == request.StoreFoodCategoryId.Value);
         }
 
-        var totalRecords =
-            await query.CountAsync();
+        var totalRecords = await query.CountAsync();
 
         var items = await query
             .OrderByDescending(x => x.Id)
@@ -414,10 +411,8 @@ public class StoreFoodService : IStoreFoodService
                 FoodName = x.FoodName,
 
                 ThumbnailUrl =
-                    !string.IsNullOrWhiteSpace(
-                        x.ThumbnailUrl)
-                    ? _cloudinaryService.BuildImageUrl(
-                        x.ThumbnailUrl)
+                    !string.IsNullOrWhiteSpace(x.ThumbnailUrl)
+                    ? _cloudinaryService.BuildImageUrl(x.ThumbnailUrl)
                     : null,
 
                 Description = x.Description,
@@ -479,6 +474,7 @@ public class StoreFoodService : IStoreFoodService
             Price = storeFood.Price,
             Quantity = storeFood.Quantity,
             IsAvailable = storeFood.IsAvailable,
+            StoreFoodCategoryId = storeFood.StoreFoodCategoryId,
             OptionGroups = optionGroups.Select(group => new StoreFoodOptionGroupResponseDto
             {
                 Id = group.Id,
