@@ -11,7 +11,7 @@ namespace FoodEmolite.Application.Interfaces
 {
     public interface IStoreFoodCategoriesService
     {
-        Task<BaseResponse<List<StoreFoodCategoryResponseDto>>> GetByStoreRefCodeAsync(string storeRefCode);
+        Task<BaseResponse<List<StoreFoodCategoryResponseDto>>> GetByStoreRefCodeAsync(GetByStoreRefCodeRequest request);
         Task<BaseTableResponse<StoreFoodCategoryResponseDto>> SearchAsync(long currentUserId, BaseSearchRequest<StoreFoodCategorySearchRequest> request);
 
         Task<BaseResponse<string>> CreateAsync(long currentUserId, string refCode, CreateStoreFoodCategoryRequest request);

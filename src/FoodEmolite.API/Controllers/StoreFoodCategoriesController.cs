@@ -18,11 +18,10 @@ public class StoreFoodCategoriesController : BaseApiController
     }
 
     [AllowAnonymous]
-    [HttpGet("{storeRefCode}")]
-    public async Task<IActionResult> GetByStoreRefCode(
-    string storeRefCode)
+    [HttpPost("get")]
+    public async Task<IActionResult> GetByStoreRefCode([FromBody] GetByStoreRefCodeRequest request)
     {
-        var result = await _service.GetByStoreRefCodeAsync(storeRefCode);
+        var result = await _service.GetByStoreRefCodeAsync(request);
         return Ok(result);
     }
 

@@ -17,7 +17,7 @@ public class StoreFoodCategoriesService : IStoreFoodCategoriesService
         _unitOfWork = unitOfWork;
     }
 
-    public async Task<BaseResponse<List<StoreFoodCategoryResponseDto>>> GetByStoreRefCodeAsync(string storeRefCode)
+    public async Task<BaseResponse<List<StoreFoodCategoryResponseDto>>> GetByStoreRefCodeAsync(GetByStoreRefCodeRequest request)
     {
         var repoCategory = _unitOfWork.GetRepository<StoreFoodCategories>();
 
@@ -25,7 +25,7 @@ public class StoreFoodCategoriesService : IStoreFoodCategoriesService
             .Query()
             .AsNoTracking()
             .Where(x =>
-                x.StoreRefCode == storeRefCode &&
+                x.StoreRefCode == request.StoreRefCode &&
                 !x.IsDelete)
             .OrderBy(x => x.CategoryName)
             .Select(x => new StoreFoodCategoryResponseDto
