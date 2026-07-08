@@ -29,7 +29,7 @@ public class SePayWebhookService : ISePayWebhookService
         var orderCode = ExtractOrderCode(request.Content);
 
         var order = orderCode != null
-            ? await repoOrder.FirstOrDefaultAsync(x => x.OrderCode.Replace("-", "") == orderCode)
+            ? await repoOrder.FirstOrDefaultAsync(x => x.OrderCode.Replace("-", "").ToUpper() == orderCode)
             : null;
 
         var transaction = new PaymentTransaction
@@ -66,8 +66,10 @@ public class SePayWebhookService : ISePayWebhookService
     private static string? ExtractOrderCode(string? content)
     {
         if (string.IsNullOrEmpty(content)) return null;
-
-        var match = Regex.Match(content, @"ORDER(?<code>[A-Za-z0-9]+)\.CT");
-        return match.Success ? match.Groups["code"].Value : null;
+        var match = Regex.Match(
+            content,
+            @"ORDER(?<code>EMF\d{12}[A-Za-z0-9]{4})",
+            RegexOptions.IgnoreCase);
+        return match.Success ? match.Groups["code"].Value.ToUpperInvariant() : null;
     }
 }
