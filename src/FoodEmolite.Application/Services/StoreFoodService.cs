@@ -331,6 +331,8 @@ public class StoreFoodService : IStoreFoodService
     {
         var repoStoreFood = _unitOfWork.GetRepository<StoreFood>();
         var repoStore = _unitOfWork.GetRepository<Store>();
+        var repoOptionGroup = _unitOfWork.GetRepository<StoreFoodOptionGroup>();
+        var repoOption = _unitOfWork.GetRepository<StoreFoodOption>();
 
         page = page <= 0 ? 1 : page;
         pageSize = pageSize <= 0 ? 10 : pageSize;
@@ -340,29 +342,85 @@ public class StoreFoodService : IStoreFoodService
             join store in repoStore.Query().AsNoTracking()
                 on storeFood.StoreRefCode equals store.RefCode
             where !storeFood.IsDeleted
-            select new StoreFoodResponseDto
+            select new
             {
-                Id = storeFood.Id,
-                RefCode = storeFood.RefCode,
-                StoreRefCode = storeFood.StoreRefCode,
-                StoreName = store.StoreName,
-                FoodName = storeFood.FoodName,
-                ThumbnailUrl = !string.IsNullOrWhiteSpace(storeFood.ThumbnailUrl)
-                    ? _cloudinaryService.BuildImageUrl(storeFood.ThumbnailUrl)
-                    : null,
-                Description = storeFood.Description,
-                Price = storeFood.Price,
-                Quantity = storeFood.Quantity,
-                IsAvailable = storeFood.IsAvailable
+                StoreFood = storeFood,
+                StoreName = store.StoreName
             };
 
         var totalRecords = await query.CountAsync();
 
-        var items = await query
-            .OrderByDescending(x => x.Id)
+        var foods = await query
+            .OrderByDescending(x => x.StoreFood.Id)
             .Skip((page - 1) * pageSize)
             .Take(pageSize)
             .ToListAsync();
+
+        var foodIds = foods
+            .Select(x => x.StoreFood.Id)
+            .ToList();
+
+        var optionGroups = await repoOptionGroup.Query()
+            .AsNoTracking()
+            .Where(x =>
+                foodIds.Contains(x.StoreFoodId) &&
+                !x.IsDeleted)
+            .OrderBy(x => x.SortOrder)
+            .ToListAsync();
+
+        var groupIds = optionGroups
+            .Select(x => x.Id)
+            .ToList();
+
+        var options = await repoOption.Query()
+            .AsNoTracking()
+            .Where(x =>
+                groupIds.Contains(x.OptionGroupId) &&
+                !x.IsDeleted)
+            .OrderBy(x => x.SortOrder)
+            .ToListAsync();
+
+        var items = foods.Select(x => new StoreFoodResponseDto
+        {
+            Id = x.StoreFood.Id,
+            RefCode = x.StoreFood.RefCode,
+            StoreRefCode = x.StoreFood.StoreRefCode,
+            StoreName = x.StoreName,
+            StoreFoodCategoryId = x.StoreFood.StoreFoodCategoryId,
+            FoodName = x.StoreFood.FoodName,
+            ThumbnailUrl = !string.IsNullOrWhiteSpace(x.StoreFood.ThumbnailUrl)
+                ? _cloudinaryService.BuildImageUrl(x.StoreFood.ThumbnailUrl)
+                : null,
+            Description = x.StoreFood.Description,
+            Price = x.StoreFood.Price,
+            Quantity = x.StoreFood.Quantity,
+            IsAvailable = x.StoreFood.IsAvailable,
+            OptionGroups = optionGroups
+                .Where(group => group.StoreFoodId == x.StoreFood.Id)
+                .Select(group => new StoreFoodOptionGroupResponseDto
+                {
+                    Id = group.Id,
+                    RefCode = group.RefCode,
+                    GroupName = group.GroupName,
+                    IsRequired = group.IsRequired,
+                    MinSelect = group.MinSelect,
+                    MaxSelect = group.MaxSelect,
+                    SortOrder = group.SortOrder,
+                    Options = options
+                        .Where(option => option.OptionGroupId == group.Id)
+                        .Select(option => new StoreFoodOptionResponseDto
+                        {
+                            Id = option.Id,
+                            RefCode = option.RefCode,
+                            OptionName = option.OptionName,
+                            AdditionalPrice = option.AdditionalPrice,
+                            IsAvailable = option.IsAvailable,
+                            SortOrder = option.SortOrder
+                        })
+                        .ToList()
+                })
+                .ToList()
+        }).ToList();
 
         return new BaseTableResponse<StoreFoodResponseDto>
         {
@@ -376,6 +434,8 @@ public class StoreFoodService : IStoreFoodService
     public async Task<BaseTableResponse<StoreFoodResponseDto>> GetByStoreRefCodeAsync(GetStoreFoodsRequest request)
     {
         var repoStoreFood = _unitOfWork.GetRepository<StoreFood>();
+        var repoOptionGroup = _unitOfWork.GetRepository<StoreFoodOptionGroup>();
+        var repoOption = _unitOfWork.GetRepository<StoreFoodOption>();
 
         var page = request.Page <= 0 ? 1 : request.Page;
         var pageSize = request.PageSize <= 0 ? 10 : request.PageSize;
@@ -395,35 +455,76 @@ public class StoreFoodService : IStoreFoodService
 
         var totalRecords = await query.CountAsync();
 
-        var items = await query
+        var foods = await query
             .OrderByDescending(x => x.Id)
             .Skip((page - 1) * pageSize)
             .Take(pageSize)
-            .Select(x => new StoreFoodResponseDto
-            {
-                Id = x.Id,
-                RefCode = x.RefCode,
-
-                StoreRefCode = x.StoreRefCode,
-
-                StoreFoodCategoryId = x.StoreFoodCategoryId,
-
-                FoodName = x.FoodName,
-
-                ThumbnailUrl =
-                    !string.IsNullOrWhiteSpace(x.ThumbnailUrl)
-                    ? _cloudinaryService.BuildImageUrl(x.ThumbnailUrl)
-                    : null,
-
-                Description = x.Description,
-
-                Price = x.Price,
-
-                Quantity = x.Quantity,
-
-                IsAvailable = x.IsAvailable
-            })
             .ToListAsync();
+
+        var foodIds = foods
+            .Select(x => x.Id)
+            .ToList();
+
+        var optionGroups = await repoOptionGroup.Query()
+            .AsNoTracking()
+            .Where(x =>
+                foodIds.Contains(x.StoreFoodId) &&
+                !x.IsDeleted)
+            .OrderBy(x => x.SortOrder)
+            .ToListAsync();
+
+        var groupIds = optionGroups
+            .Select(x => x.Id)
+            .ToList();
+
+        var options = await repoOption.Query()
+            .AsNoTracking()
+            .Where(x =>
+                groupIds.Contains(x.OptionGroupId) &&
+                !x.IsDeleted)
+            .OrderBy(x => x.SortOrder)
+            .ToListAsync();
+
+        var items = foods.Select(food => new StoreFoodResponseDto
+        {
+            Id = food.Id,
+            RefCode = food.RefCode,
+            StoreRefCode = food.StoreRefCode,
+            StoreFoodCategoryId = food.StoreFoodCategoryId,
+            FoodName = food.FoodName,
+            ThumbnailUrl = !string.IsNullOrWhiteSpace(food.ThumbnailUrl)
+                ? _cloudinaryService.BuildImageUrl(food.ThumbnailUrl)
+                : null,
+            Description = food.Description,
+            Price = food.Price,
+            Quantity = food.Quantity,
+            IsAvailable = food.IsAvailable,
+            OptionGroups = optionGroups
+                .Where(group => group.StoreFoodId == food.Id)
+                .Select(group => new StoreFoodOptionGroupResponseDto
+                {
+                    Id = group.Id,
+                    RefCode = group.RefCode,
+                    GroupName = group.GroupName,
+                    IsRequired = group.IsRequired,
+                    MinSelect = group.MinSelect,
+                    MaxSelect = group.MaxSelect,
+                    SortOrder = group.SortOrder,
+                    Options = options
+                        .Where(option => option.OptionGroupId == group.Id)
+                        .Select(option => new StoreFoodOptionResponseDto
+                        {
+                            Id = option.Id,
+                            RefCode = option.RefCode,
+                            OptionName = option.OptionName,
+                            AdditionalPrice = option.AdditionalPrice,
+                            IsAvailable = option.IsAvailable,
+                            SortOrder = option.SortOrder
+                        })
+                        .ToList()
+                })
+                .ToList()
+        }).ToList();
 
         return new BaseTableResponse<StoreFoodResponseDto>
         {

@@ -15,6 +15,7 @@ namespace FoodEmolite.Application.Services;
 public class OrderService : IOrderService
 {
     private readonly IUnitOfWork _unitOfWork;
+    private static readonly HttpClient _httpClient = new HttpClient();
 
     public OrderService(IUnitOfWork unitOfWork)
     {
@@ -876,7 +877,7 @@ public class OrderService : IOrderService
             };
         }).ToList();
 
-        var pdfBytes = BuildOrdersPdf(models);
+        var pdfBytes = await BuildOrdersPdfAsync(models);
 
         return BaseResponse<byte[]>.Success(pdfBytes);
     }
@@ -959,7 +960,22 @@ public class OrderService : IOrderService
         return $"{value:N0}đ";
     }
 
-    private byte[] BuildOrdersPdf(List<PrintOrderViewModel> orders)
+    private async Task<byte[]?> TryDownloadImageAsync(string? imageUrl)
+    {
+        if (string.IsNullOrWhiteSpace(imageUrl))
+            return null;
+
+        try
+        {
+            return await _httpClient.GetByteArrayAsync(imageUrl);
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private async Task<byte[]> BuildOrdersPdfAsync(List<PrintOrderViewModel> orders)
     {
         QuestPDF.Settings.License = LicenseType.Community;
 
@@ -967,27 +983,17 @@ public class OrderService : IOrderService
             .OrderBy(x => x.CreatedAt)
             .ToList();
 
-        var grandTotal = orders.Sum(x => x.TotalAmount);
-        var totalOrders = orders.Count;
-        var totalItems = orders.Sum(x => x.Items.Sum(i => i.Quantity));
+        var grandTotal = orderedOrders.Sum(x => x.TotalAmount);
+        var totalOrders = orderedOrders.Count;
+        var totalItems = orderedOrders.Sum(x => x.Items.Sum(i => i.Quantity));
 
-        var summaryItems = orders
+        var summaryItems = orderedOrders
             .SelectMany(x => x.Items)
             .GroupBy(x => x.FoodName)
-            .Select(foodGroup => new
+            .Select(x => new
             {
-                FoodName = foodGroup.Key,
-                TotalQuantity = foodGroup.Sum(x => x.Quantity),
-                Variants = foodGroup
-                    .GroupBy(x => GetOptionKey(x.Options))
-                    .Select(optionGroup => new
-                    {
-                        Quantity = optionGroup.Sum(x => x.Quantity),
-                        OptionText = GetOptionDisplay(optionGroup.First().Options)
-                    })
-                    .OrderByDescending(x => x.Quantity)
-                    .ThenBy(x => x.OptionText)
-                    .ToList()
+                FoodName = x.Key,
+                TotalQuantity = x.Sum(i => i.Quantity)
             })
             .OrderBy(x => x.FoodName)
             .ToList();
@@ -1006,148 +1012,133 @@ public class OrderService : IOrderService
                         .Bold()
                         .FontSize(16);
 
-                    header.Item().AlignCenter().Text($"Ngày in: {DateTime.Now:dd/MM/yyyy HH:mm}")
+                    header.Item().AlignCenter()
+                        .Text($"Ngày in: {DateTime.Now:dd/MM/yyyy HH:mm}")
                         .FontSize(9)
                         .FontColor(Colors.Grey.Darken1);
-
-                    header.Item().PaddingTop(8).LineHorizontal(1).LineColor(Colors.Grey.Lighten2);
                 });
 
-                page.Content().PaddingTop(14).Column(column =>
+                page.Content().PaddingTop(18).Column(column =>
                 {
-                    column.Item().Text("TỔNG HỢP MÓN")
-                        .Bold()
-                        .FontSize(13);
-
-                    column.Item().PaddingTop(6);
-
-                    foreach (var summary in summaryItems)
-                    {
-                        column.Item().PaddingBottom(6).Column(summaryColumn =>
-                        {
-                            summaryColumn.Item().Text($"{summary.TotalQuantity} {summary.FoodName}")
-                                .SemiBold()
-                                .FontSize(10);
-
-                            foreach (var variant in summary.Variants)
-                            {
-                                summaryColumn.Item()
-                                    .PaddingLeft(10)
-                                    .Text($"{variant.Quantity} {variant.OptionText}")
-                                    .FontSize(8)
-                                    .FontColor(Colors.Grey.Darken1);
-                            }
-                        });
-                    }
+                    //-----------------------------------
+                    // Tổng hợp
+                    //-----------------------------------
 
                     column.Item()
-                        .PaddingVertical(10)
-                        .LineHorizontal(1)
-                        .LineColor(Colors.Grey.Lighten2);
-
-                    column.Item().Text("CHI TIẾT ĐƠN")
+                        .Text("TỔNG HỢP MÓN")
                         .Bold()
                         .FontSize(13);
 
                     column.Item().PaddingTop(8);
 
-                    for (var orderIndex = 0; orderIndex < orderedOrders.Count; orderIndex++)
+                    foreach (var summary in summaryItems)
                     {
-                        var order = orderedOrders[orderIndex];
+                        column.Item()
+                            .PaddingBottom(3)
+                            .Text($"{summary.TotalQuantity}x  {summary.FoodName}")
+                            .SemiBold()
+                            .FontSize(10);
+                    }
 
-                        if (orderIndex > 0)
-                        {
-                            column.Item()
-                                .PaddingVertical(10)
-                                .LineHorizontal(1)
-                                .LineColor(Colors.Grey.Lighten2);
-                        }
+                    column.Item().PaddingVertical(14);
 
-                        column.Item().Row(row =>
-                        {
-                            row.RelativeItem().Column(customer =>
-                            {
-                                customer.Item().Text(order.CustomerName)
-                                    .Bold()
-                                    .FontSize(12);
+                    //-----------------------------------
+                    // Chi tiết
+                    //-----------------------------------
 
-                                if (!string.IsNullOrWhiteSpace(order.OrderCode))
-                                {
-                                    customer.Item().Text(order.OrderCode)
-                                        .FontSize(8)
-                                        .FontColor(Colors.Grey.Darken1);
-                                }
-                            });
+                    column.Item()
+                        .Text("CHI TIẾT ĐƠN")
+                        .Bold()
+                        .FontSize(13);
 
-                            row.ConstantItem(110).AlignRight().Text(FormatCurrency(order.TotalAmount))
-                                .Bold()
-                                .FontSize(11);
-                        });
+                    column.Item().PaddingTop(10);
+
+                    foreach (var order in orderedOrders)
+                    {
+                        column.Item().PaddingBottom(12);
+
+                        // Tên khách
+                        column.Item()
+                            .Text(order.CustomerName)
+                            .Bold()
+                            .FontSize(12);
 
                         if (!string.IsNullOrWhiteSpace(order.Note))
                         {
                             column.Item()
-                                .PaddingTop(4)
+                                .PaddingTop(2)
+                                .PaddingBottom(4)
                                 .Text($"Ghi chú: {order.Note}")
-                                .FontSize(8)
-                                .FontColor(Colors.Grey.Darken1);
+                                .FontSize(10)
+                                .FontColor(Colors.Grey.Darken2);
                         }
-
-                        column.Item().PaddingTop(8);
 
                         foreach (var item in order.Items)
                         {
-                            column.Item().PaddingBottom(7).Row(row =>
+                            column.Item().PaddingTop(5).Column(itemColumn =>
                             {
-                                row.RelativeItem().Column(itemColumn =>
+                                itemColumn.Item().Row(row =>
                                 {
-                                    itemColumn.Item().Text(item.FoodName)
-                                        .FontSize(10)
+                                    row.ConstantItem(28)
+                                        .Text($"{item.Quantity}x")
                                         .SemiBold();
 
-                                    if (item.Options != null && item.Options.Any())
-                                    {
-                                        foreach (var option in item.Options)
-                                        {
-                                            var optionPriceText = option.AdditionalPrice > 0
-                                                ? $" ({FormatCurrency(option.AdditionalPrice)})"
-                                                : "";
+                                    row.RelativeItem()
+                                        .Text(item.FoodName)
+                                        .SemiBold()
+                                        .FontSize(10);
 
-                                            itemColumn.Item()
-                                                .PaddingLeft(8)
-                                                .Text($"+ {option.GroupName}: {option.OptionName}{optionPriceText}")
-                                                .FontSize(8)
-                                                .FontColor(Colors.Grey.Darken1);
-                                        }
-                                    }
+                                    row.ConstantItem(80)
+                                        .AlignRight()
+                                        .Text(FormatCurrency(item.UnitPrice))
+                                        .FontSize(10);
                                 });
 
-                                row.ConstantItem(45).AlignCenter().Text($"x{item.Quantity}")
-                                    .FontSize(10);
+                                if (item.Options?.Any() == true)
+                                {
+                                    foreach (var option in item.Options)
+                                    {
+                                        var price = option.AdditionalPrice > 0
+                                            ? $" (+{FormatCurrency(option.AdditionalPrice)})"
+                                            : "";
 
-                                row.ConstantItem(90).AlignRight().Text(FormatCurrency(item.TotalPrice))
-                                    .FontSize(10);
+                                        itemColumn.Item()
+                                            .PaddingLeft(28)
+                                            .PaddingTop(1)
+                                            .Text($"{option.GroupName}: {option.OptionName}{price}")
+                                            .FontSize(10)
+                                            .FontColor(Colors.Grey.Darken1);
+                                    }
+                                }
                             });
                         }
+
+                        column.Item().PaddingBottom(8);
                     }
                 });
 
                 page.Footer().Column(footer =>
                 {
-                    footer.Item().LineHorizontal(1).LineColor(Colors.Grey.Lighten2);
+                    footer.Item().PaddingTop(8);
 
-                    footer.Item().PaddingTop(10).Row(row =>
+                    footer.Item().Row(row =>
                     {
-                        row.RelativeItem().AlignRight().Text("TỔNG CỘNG")
-                            .FontSize(11)
-                            .SemiBold();
+                        row.RelativeItem()
+                            .Text("TỔNG CỘNG")
+                            .SemiBold()
+                            .FontSize(11);
 
-                        row.ConstantItem(120).AlignRight().Text(FormatCurrency(grandTotal))
+                        row.ConstantItem(120)
+                            .AlignRight()
+                            .Text(FormatCurrency(grandTotal))
                             .Bold()
                             .FontSize(15);
                     });
 
-                    footer.Item().PaddingTop(4).AlignRight().Text($"Số đơn: {totalOrders}   |   Số món: {totalItems}")
+                    footer.Item()
+                        .PaddingTop(4)
+                        .Text($"{totalOrders} đơn • {totalItems} món")
+                        .AlignRight()
                         .FontSize(9)
                         .FontColor(Colors.Grey.Darken1);
                 });
@@ -1155,27 +1146,27 @@ public class OrderService : IOrderService
         }).GeneratePdf();
     }
 
-    private string GetOptionKey(List<PrintOrderItemOptionViewModel>? options)
-    {
-        if (options == null || !options.Any())
-            return "";
+    //private string GetOptionKey(List<PrintOrderItemOptionViewModel>? options)
+    //{
+    //    if (options == null || !options.Any())
+    //        return "";
 
-        return string.Join(" | ", options
-            .OrderBy(x => x.GroupName)
-            .ThenBy(x => x.OptionName)
-            .Select(x => $"{x.GroupName}:{x.OptionName}"));
-    }
+    //    return string.Join(" | ", options
+    //        .OrderBy(x => x.GroupName)
+    //        .ThenBy(x => x.OptionName)
+    //        .Select(x => $"{x.GroupName}:{x.OptionName}"));
+    //}
 
-    private string GetOptionDisplay(List<PrintOrderItemOptionViewModel>? options)
-    {
-        if (options == null || !options.Any())
-            return "không option";
+    //private string GetOptionDisplay(List<PrintOrderItemOptionViewModel>? options)
+    //{
+    //    if (options == null || !options.Any())
+    //        return "không option";
 
-        return string.Join(", ", options
-            .OrderBy(x => x.GroupName)
-            .ThenBy(x => x.OptionName)
-            .Select(x => x.OptionName));
-    }
+    //    return string.Join(", ", options
+    //        .OrderBy(x => x.GroupName)
+    //        .ThenBy(x => x.OptionName)
+    //        .Select(x => x.OptionName));
+    //}
 
     private static string GenerateCustomerCode()
     {
