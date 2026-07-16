@@ -62,6 +62,16 @@ public class OrderService : IOrderService
         if (foods.Count != storeFoodIds.Count)
             return BaseResponse<CreateOrderResponseDto>.Fail("Food not found");
 
+        var requiredQuantities = request.Items.GroupBy(x => x.StoreFoodId).ToDictionary(g => g.Key, g => g.Sum(x => x.Quantity));
+
+        foreach (var food in foods)
+        {
+            var requiredQty = requiredQuantities[food.Id];
+
+            if (food.Quantity < requiredQty)
+                return BaseResponse<CreateOrderResponseDto>.Fail($"Món \"{food.FoodName}\" không đủ số lượng");
+        }
+
         decimal totalAmount = 0;
 
         foreach (var item in request.Items)
@@ -74,6 +84,14 @@ public class OrderService : IOrderService
 
             totalAmount += totalPrice;
         }
+
+        foreach (var food in foods)
+        {
+            food.Quantity -= requiredQuantities[food.Id];
+            repoFood.Update(food);
+        }
+
+        await _unitOfWork.SaveChangesAsync();
 
         var order = new Order
         {
@@ -202,6 +220,16 @@ public class OrderService : IOrderService
         if (foods.Count != storeFoodIds.Count)
             return BaseResponse<CreateOrderResponseDto>.Fail("Food not found");
 
+        var requiredQuantities = request.Items.GroupBy(x => x.StoreFoodId).ToDictionary(g => g.Key, g => g.Sum(x => x.Quantity));
+
+        foreach (var food in foods)
+        {
+            var requiredQty = requiredQuantities[food.Id];
+
+            if (food.Quantity < requiredQty)
+                return BaseResponse<CreateOrderResponseDto>.Fail($"Món \"{food.FoodName}\" không đủ số lượng");
+        }
+
         decimal totalAmount = 0;
 
         foreach (var item in request.Items)
@@ -214,6 +242,14 @@ public class OrderService : IOrderService
 
             totalAmount += totalPrice;
         }
+
+        foreach (var food in foods)
+        {
+            food.Quantity -= requiredQuantities[food.Id];
+            repoFood.Update(food);
+        }
+
+        await _unitOfWork.SaveChangesAsync();
 
         var customer = new Customer
         {

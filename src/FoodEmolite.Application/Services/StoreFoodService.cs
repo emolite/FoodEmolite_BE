@@ -3,6 +3,7 @@ using FoodEmolite.Application.ExternalService.Interfaces;
 using FoodEmolite.Application.Interfaces;
 using FoodEmolite.Domain.Entities;
 using FoodEmolite.Domain.Interfaces;
+using FoodEmolite.Shared.Entities;
 using FoodEmolite.Shared.Responses;
 using Microsoft.EntityFrameworkCore;
 
@@ -431,11 +432,22 @@ public class StoreFoodService : IStoreFoodService
         };
     }
 
-    public async Task<BaseTableResponse<StoreFoodResponseDto>> GetByStoreRefCodeAsync(GetStoreFoodsRequest request)
+    public async Task<BaseTableResponse<StoreFoodResponseDto>> GetByStoreRefCodeAsync(BaseSearchRequest<GetStoreFoodsRequest> request)
     {
         var repoStoreFood = _unitOfWork.GetRepository<StoreFood>();
         var repoOptionGroup = _unitOfWork.GetRepository<StoreFoodOptionGroup>();
         var repoOption = _unitOfWork.GetRepository<StoreFoodOption>();
+
+        var searchParams = request.SearchParams;
+
+        if (searchParams is null || string.IsNullOrWhiteSpace(searchParams.StoreRefCode))
+            return new BaseTableResponse<StoreFoodResponseDto>
+            {
+                Items = new List<StoreFoodResponseDto>(),
+                Page = 1,
+                PageSize = request.PageSize,
+                TotalRecords = 0
+            };
 
         var page = request.Page <= 0 ? 1 : request.Page;
         var pageSize = request.PageSize <= 0 ? 10 : request.PageSize;
@@ -444,19 +456,35 @@ public class StoreFoodService : IStoreFoodService
             .Query()
             .AsNoTracking()
             .Where(x =>
-                x.StoreRefCode == request.StoreRefCode &&
+                x.StoreRefCode == searchParams.StoreRefCode &&
                 !x.IsDeleted);
 
-        if (request.StoreFoodCategoryId.HasValue)
+        if (searchParams.StoreFoodCategoryId.HasValue)
         {
             query = query.Where(x =>
-                x.StoreFoodCategoryId == request.StoreFoodCategoryId.Value);
+                x.StoreFoodCategoryId == searchParams.StoreFoodCategoryId.Value);
         }
 
         var totalRecords = await query.CountAsync();
 
+        query = request.SortBy switch
+        {
+            "foodName" => request.Asc
+                ? query.OrderBy(x => x.FoodName)
+                : query.OrderByDescending(x => x.FoodName),
+
+            "price" => request.Asc
+                ? query.OrderBy(x => x.Price)
+                : query.OrderByDescending(x => x.Price),
+
+            "quantity" => request.Asc
+                ? query.OrderBy(x => x.Quantity)
+                : query.OrderByDescending(x => x.Quantity),
+
+            _ => query.OrderByDescending(x => x.Id)
+        };
+
         var foods = await query
-            .OrderByDescending(x => x.Id)
             .Skip((page - 1) * pageSize)
             .Take(pageSize)
             .ToListAsync();
@@ -602,4 +630,4 @@ public class StoreFoodService : IStoreFoodService
 
         return BaseResponse<StoreFoodResponseDto>.Success(response);
     }
-}
+}   
