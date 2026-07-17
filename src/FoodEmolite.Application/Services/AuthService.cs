@@ -129,12 +129,16 @@ public class AuthService : IAuthService
             .Headers["X-Forwarded-For"]
             .FirstOrDefault();
 
-        if (string.IsNullOrWhiteSpace(ipAddress))
+        if (!string.IsNullOrWhiteSpace(ipAddress))
+        {
+            ipAddress = ipAddress.Split(',')[0].Trim();
+        }
+        else
         {
             ipAddress = httpContext?
                 .Connection
-                ?.RemoteIpAddress
-                ?.ToString();
+                .RemoteIpAddress?
+                .ToString();
         }
 
         var userAgent = httpContext?

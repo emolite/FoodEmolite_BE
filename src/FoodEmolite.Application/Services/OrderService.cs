@@ -5,6 +5,7 @@ using FoodEmolite.Domain.Entities;
 using FoodEmolite.Domain.Interfaces;
 using FoodEmolite.Shared.Entities;
 using FoodEmolite.Shared.Responses;
+using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using QuestPDF.Fluent;
 using QuestPDF.Helpers;
@@ -16,10 +17,12 @@ public class OrderService : IOrderService
 {
     private readonly IUnitOfWork _unitOfWork;
     private static readonly HttpClient _httpClient = new HttpClient();
+    private readonly IHttpContextAccessor _httpContextAccessor;
 
-    public OrderService(IUnitOfWork unitOfWork)
+    public OrderService(IUnitOfWork unitOfWork, IHttpContextAccessor httpContextAccessor)
     {
         _unitOfWork = unitOfWork;
+        _httpContextAccessor = httpContextAccessor;
     }
 
     public async Task<BaseResponse<CreateOrderResponseDto>> CreateAsync(long currentUserId, string refCode, CreateOrderRequestDto request)
@@ -62,6 +65,16 @@ public class OrderService : IOrderService
         if (foods.Count != storeFoodIds.Count)
             return BaseResponse<CreateOrderResponseDto>.Fail("Food not found");
 
+        var requiredQuantities = request.Items.GroupBy(x => x.StoreFoodId).ToDictionary(g => g.Key, g => g.Sum(x => x.Quantity));
+
+        foreach (var food in foods)
+        {
+            var requiredQty = requiredQuantities[food.Id];
+
+            if (food.Quantity < requiredQty)
+                return BaseResponse<CreateOrderResponseDto>.Fail($"Món \"{food.FoodName}\" không đủ số lượng");
+        }
+
         decimal totalAmount = 0;
 
         foreach (var item in request.Items)
@@ -74,6 +87,14 @@ public class OrderService : IOrderService
 
             totalAmount += totalPrice;
         }
+
+        foreach (var food in foods)
+        {
+            food.Quantity -= requiredQuantities[food.Id];
+            repoFood.Update(food);
+        }
+
+        await _unitOfWork.SaveChangesAsync();
 
         var order = new Order
         {
@@ -202,6 +223,16 @@ public class OrderService : IOrderService
         if (foods.Count != storeFoodIds.Count)
             return BaseResponse<CreateOrderResponseDto>.Fail("Food not found");
 
+        var requiredQuantities = request.Items.GroupBy(x => x.StoreFoodId).ToDictionary(g => g.Key, g => g.Sum(x => x.Quantity));
+
+        foreach (var food in foods)
+        {
+            var requiredQty = requiredQuantities[food.Id];
+
+            if (food.Quantity < requiredQty)
+                return BaseResponse<CreateOrderResponseDto>.Fail($"Món \"{food.FoodName}\" không đủ số lượng");
+        }
+
         decimal totalAmount = 0;
 
         foreach (var item in request.Items)
@@ -215,16 +246,42 @@ public class OrderService : IOrderService
             totalAmount += totalPrice;
         }
 
-        var customer = new Customer
+        foreach (var food in foods)
         {
-            RefCode = Guid.NewGuid().ToString().ToUpper(),
-            CustomerCode = GenerateCustomerCode(),
-            CustomerName = request.CustomerName.Trim(),
-            CreatedAt = DateTime.Now
-        };
+            food.Quantity -= requiredQuantities[food.Id];
+            repoFood.Update(food);
+        }
 
-        await repoCustomer.AddAsync(customer);
         await _unitOfWork.SaveChangesAsync();
+
+        Customer customer = null;
+
+        if (!string.IsNullOrWhiteSpace(request.DeviceId))
+        {
+            customer = await repoCustomer.FirstOrDefaultAsync(x => x.DeviceId == request.DeviceId);
+        }
+
+        if (customer is null)
+        {
+            customer = new Customer
+            {
+                RefCode = Guid.NewGuid().ToString().ToUpper(),
+                CustomerCode = GenerateCustomerCode(),
+                CustomerName = request.CustomerName.Trim(),
+                DeviceId = request.DeviceId,
+                CreatedAt = DateTime.Now
+            };
+
+            await repoCustomer.AddAsync(customer);
+            await _unitOfWork.SaveChangesAsync();
+        }
+        else
+        {
+            customer.CustomerName = request.CustomerName.Trim();
+
+            repoCustomer.Update(customer);
+            await _unitOfWork.SaveChangesAsync();
+        }
 
         var refCode = customer.RefCode;
 
@@ -240,7 +297,8 @@ public class OrderService : IOrderService
             PaymentStatus = "UNPAID",
             Note = request.Note,
             CreatedAt = DateTime.Now,
-            CreatedBy = null
+            CreatedBy = null,
+            IpAddress = GetClientIp()
         };
 
         await repoOrder.AddAsync(order);
@@ -908,6 +966,30 @@ public class OrderService : IOrderService
         return BaseResponse<string>.Success(order.PaymentStatus);
     }
 
+    public async Task<BaseResponse<string?>> CheckPendingOrderAsync(string deviceId)
+    {
+        var repoOrder = _unitOfWork.GetRepository<Order>();
+        var repoCustomer = _unitOfWork.GetRepository<Customer>();
+
+        var order = await (
+            from o in repoOrder.Query()
+            join c in repoCustomer.Query()
+                on o.CustomerId equals c.Id
+            where c.DeviceId == deviceId
+                && o.PaymentStatus == "UNPAID"
+                && !o.IsDelete
+            orderby o.CreatedAt descending
+            select o
+        ).FirstOrDefaultAsync();
+
+        if (order is null)
+        {
+            return BaseResponse<string?>.Success(null);
+        }
+
+        return BaseResponse<string?>.Success(order.OrderCode);
+    }
+
     private async Task FillOrderItemOptionsAsync(List<OrderItemResponseDto> orderItems)
     {
         if (orderItems == null || !orderItems.Any())
@@ -1180,5 +1262,23 @@ public class OrderService : IOrderService
         );
 
         return $"CUS-{suffix}";
+    }
+
+    private string? GetClientIp()
+    {
+        var context = _httpContextAccessor.HttpContext;
+
+        var ip = context?
+            .Request
+            .Headers["X-Forwarded-For"]
+            .FirstOrDefault();
+
+        if (!string.IsNullOrWhiteSpace(ip))
+            return ip.Split(',')[0].Trim();
+
+        return context?
+            .Connection
+            .RemoteIpAddress?
+            .ToString();
     }
 }

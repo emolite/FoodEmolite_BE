@@ -11,5 +11,8 @@ namespace FoodEmolite.Domain.Entities
 
         [Column("customer_name")]
         public string CustomerName { get; set; }
+
+        [Column("device_id")]
+        public string DeviceId { get; set; }
     }
 }

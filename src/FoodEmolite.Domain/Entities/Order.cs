@@ -33,4 +33,7 @@ public class Order : BaseEntity
 
     [Column("is_delete")]
     public bool IsDelete { get; set; }
+
+    [Column("ip_address")]
+    public string? IpAddress { get; set; }
 }

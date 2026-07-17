@@ -1,5 +1,6 @@
 ﻿using FoodEmolite.Application.DTOs.StoreFood;
 using FoodEmolite.Application.Interfaces;
+using FoodEmolite.Shared.Entities;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -55,7 +56,7 @@ public class StoreFoodController : BaseApiController
 
     [AllowAnonymous]
     [HttpPost("store")]
-    public async Task<IActionResult> GetByStoreRefCode([FromBody] GetStoreFoodsRequest request)
+    public async Task<IActionResult> GetByStoreRefCode([FromBody] BaseSearchRequest<GetStoreFoodsRequest> request)
     {
         var result = await _storeFoodService.GetByStoreRefCodeAsync(request);
 

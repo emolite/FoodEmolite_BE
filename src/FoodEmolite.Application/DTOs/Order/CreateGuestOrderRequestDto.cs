@@ -9,5 +9,7 @@ namespace FoodEmolite.Application.DTOs.Order
     public class CreateGuestOrderRequestDto : CreateOrderRequestDto
     {
         public string CustomerName { get; set; } = null!;
+
+        public string? DeviceId { get; set; }
     }
 }

@@ -1,4 +1,5 @@
 ﻿using FoodEmolite.Application.DTOs.StoreFood;
+using FoodEmolite.Shared.Entities;
 using FoodEmolite.Shared.Responses;
 
 namespace FoodEmolite.Application.Interfaces;
@@ -15,7 +16,7 @@ public interface IStoreFoodService
         int page,
         int pageSize);
 
-    Task<BaseTableResponse<StoreFoodResponseDto>> GetByStoreRefCodeAsync(GetStoreFoodsRequest request);
+    Task<BaseTableResponse<StoreFoodResponseDto>> GetByStoreRefCodeAsync(BaseSearchRequest<GetStoreFoodsRequest> request);
 
     Task<BaseResponse<StoreFoodResponseDto>> GetDetailAsync(long id);
 }

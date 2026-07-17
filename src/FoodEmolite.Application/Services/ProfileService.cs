@@ -315,13 +315,42 @@ public class ProfileService : IProfileService
             });
     }
 
-    public async Task<BaseResponse<StorePaymentInfoResponseDto>> GetStorePaymentInfoAsync(string storeRefCode, decimal amount, string orderCode)
+    public async Task<BaseResponse<GuestProfileResponseDto>> GetGuestProfileAsync(string deviceId)
     {
+        var repoCustomer = _unitOfWork.GetRepository<Customer>();
+
+        if (string.IsNullOrWhiteSpace(deviceId))
+            return BaseResponse<GuestProfileResponseDto>.Success(null);
+
+        var customer = await repoCustomer.FirstOrDefaultAsync(x =>
+            x.DeviceId == deviceId);
+
+        if (customer is null)
+            return BaseResponse<GuestProfileResponseDto>.Success(null);
+
+        return BaseResponse<GuestProfileResponseDto>.Success(
+            new GuestProfileResponseDto
+            {
+                CustomerId = customer.Id,
+                CustomerName = customer.CustomerName
+            });
+    }
+
+    public async Task<BaseResponse<StorePaymentInfoResponseDto>> GetStorePaymentInfoAsync(string orderCode)
+    {
+        var repoOrder = _unitOfWork.GetRepository<Order>();
         var repoStore = _unitOfWork.GetRepository<Store>();
         var repoBank = _unitOfWork.GetRepository<BankAccount>();
 
+        var order = await repoOrder.FirstOrDefaultAsync(x =>
+            x.OrderCode == orderCode &&
+            !x.IsDelete);
+
+        if (order is null)
+            return BaseResponse<StorePaymentInfoResponseDto>.Fail("Order not found");
+
         var store = await repoStore.FirstOrDefaultAsync(x =>
-            x.RefCode == storeRefCode &&
+            x.RefCode == order.StoreRefCode &&
             x.IsActive &&
             !x.IsDeleted);
 
@@ -337,11 +366,11 @@ public class ProfileService : IProfileService
             return BaseResponse<StorePaymentInfoResponseDto>.Fail("Bank account not found");
 
         var accountName = Uri.EscapeDataString(bankAccount.AccountHolderName ?? "");
-        var addInfo = Uri.EscapeDataString($"ORDER_{orderCode}");
-        var amountValue = Math.Round(amount, 0);
+        var addInfo = Uri.EscapeDataString($"ORDER_{order.OrderCode}");
+        var amount = Math.Round(order.TotalAmount, 0);
 
         var vietQrUrl =
-            $"https://img.vietqr.io/image/{bankAccount.BankCode}-{bankAccount.AccountNumber}-compact2.png?amount={amountValue}&addInfo={addInfo}&accountName={accountName}";
+            $"https://img.vietqr.io/image/{bankAccount.BankCode}-{bankAccount.AccountNumber}-compact2.png?amount={amount}&addInfo={addInfo}&accountName={accountName}";
 
         return BaseResponse<StorePaymentInfoResponseDto>.Success(
             new StorePaymentInfoResponseDto
@@ -354,7 +383,7 @@ public class ProfileService : IProfileService
                 BankCode = bankAccount.BankCode,
                 AccountNumber = bankAccount.AccountNumber,
                 AccountHolderName = bankAccount.AccountHolderName,
-                Amount = amount,
+                Amount = order.TotalAmount,
                 VietQrUrl = vietQrUrl
             });
     }
