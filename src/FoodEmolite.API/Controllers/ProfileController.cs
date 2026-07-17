@@ -39,12 +39,19 @@ namespace FoodEmolite.API.Controllers
         }
 
         [AllowAnonymous]
-        [HttpGet("store-payment/{storeRefCode}")]
-        public async Task<IActionResult> GetStorePaymentInfo(string storeRefCode, [FromQuery] decimal amount,[FromQuery] string orderCode)
+        [HttpGet("guest-profile")]
+        public async Task<IActionResult> GetGuestProfile([FromQuery] string deviceId)
         {
-            var result = await _profileService.GetStorePaymentInfoAsync(
-                storeRefCode,
-                amount, orderCode);
+            var result = await _profileService.GetGuestProfileAsync(deviceId);
+
+            return Ok(result);
+        }
+
+        [AllowAnonymous]
+        [HttpGet("store-payment/{orderCode}")]
+        public async Task<IActionResult> GetStorePaymentInfo(string orderCode)
+        {
+            var result = await _profileService.GetStorePaymentInfoAsync(orderCode);
 
             return Ok(result);
         }

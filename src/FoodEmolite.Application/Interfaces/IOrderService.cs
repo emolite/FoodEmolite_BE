@@ -23,4 +23,6 @@ public interface IOrderService
     Task<BaseResponse<byte[]>> PrintOrdersAsync(long currentUserId, PrintOrdersRequestDto request);
 
     Task<BaseResponse<string>> GetPaymentStatusAsync(string orderCode);
+
+    Task<BaseResponse<string?>> CheckPendingOrderAsync(string deviceId);
 }

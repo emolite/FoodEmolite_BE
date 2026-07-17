@@ -118,4 +118,13 @@ public class OrderController : BaseApiController
         var result = await _orderService.GetPaymentStatusAsync(orderCode);
         return Ok(result);
     }
+
+    [AllowAnonymous]
+    [HttpGet("pending-order")]
+    public async Task<IActionResult> CheckPendingOrder([FromQuery] string deviceId)
+    {
+        var result = await _orderService.CheckPendingOrderAsync(deviceId);
+
+        return Ok(result);
+    }
 }
