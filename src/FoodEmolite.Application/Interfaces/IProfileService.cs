@@ -10,6 +10,7 @@ public interface IProfileService
     Task<BaseTableResponse<MyProfileResponseDto>> GetAllAgentProfilesAsync(int page, int pageSize);
     Task<BaseResponse<MyProfileResponseDto>> GetMyProfileAsync(long currentUserId);
     Task<BaseResponse<GuestProfileResponseDto>> GetGuestProfileAsync(string deviceId);
+    Task<BaseResponse<GuestProfileResponseDto>> UpdateGuestProfile(UpdateGuestProfileRequestDto request);
     Task<BaseResponse<StorePaymentInfoResponseDto>> GetStorePaymentInfoAsync(string orderCode);
 
     Task<BaseResponse<AccountProfileDto>> CreateAccountProfileAsync(

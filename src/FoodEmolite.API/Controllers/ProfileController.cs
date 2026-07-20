@@ -48,6 +48,15 @@ namespace FoodEmolite.API.Controllers
         }
 
         [AllowAnonymous]
+        [HttpPut("guest-profile")]
+        public async Task<IActionResult> UpdateGuestProfile([FromBody] UpdateGuestProfileRequestDto request)
+        {
+            var result = await _profileService.UpdateGuestProfile(request);
+
+            return Ok(result);
+        }
+
+        [AllowAnonymous]
         [HttpGet("store-payment/{orderCode}")]
         public async Task<IActionResult> GetStorePaymentInfo(string orderCode)
         {
