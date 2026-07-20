@@ -336,6 +336,30 @@ public class ProfileService : IProfileService
             });
     }
 
+    public async Task<BaseResponse<GuestProfileResponseDto>> UpdateGuestProfile(UpdateGuestProfileRequestDto request)
+    {
+        var repoCustomer = _unitOfWork.GetRepository<Customer>();
+
+        var customer = await repoCustomer.FirstOrDefaultAsync(x =>
+            x.DeviceId == request.DeviceId);
+
+        if (customer is null)
+            return BaseResponse<GuestProfileResponseDto>.Fail("Không tìm thấy khách hàng.");
+
+        customer.CustomerName = request.CustomerName.Trim();
+        customer.UpdatedAt = DateTime.Now;
+
+        repoCustomer.Update(customer);
+        await _unitOfWork.SaveChangesAsync();
+
+        return BaseResponse<GuestProfileResponseDto>.Success(
+            new GuestProfileResponseDto
+            {
+                CustomerId = customer.Id,
+                CustomerName = customer.CustomerName
+            });
+    }
+
     public async Task<BaseResponse<StorePaymentInfoResponseDto>> GetStorePaymentInfoAsync(string orderCode)
     {
         var repoOrder = _unitOfWork.GetRepository<Order>();
