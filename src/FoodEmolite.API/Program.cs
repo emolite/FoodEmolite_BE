@@ -11,6 +11,7 @@ using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 
+builder.Configuration.Sources.Clear();
 builder.Services.AddControllers();
 
 builder.Services.AddHttpContextAccessor();
