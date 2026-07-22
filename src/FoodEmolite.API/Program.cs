@@ -8,7 +8,8 @@ using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using System.Reflection;
 using System.Text;
-
+using Microsoft.Extensions.Configuration.Json; 
+using System.Linq;
 var builder = WebApplication.CreateBuilder(args);
 foreach (var source in builder.Configuration.Sources.OfType<JsonConfigurationSource>())
 {
