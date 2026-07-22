@@ -10,9 +10,10 @@ using System.Reflection;
 using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
-Console.WriteLine($"[DEBUG] Jwt:SecretKey = '{builder.Configuration["Jwt:SecretKey"]}'");
-builder.Configuration.Sources.Clear();
-Console.WriteLine($"[DEBUG] Jwt:SecretKey = '{builder.Configuration["Jwt:SecretKey"]}'");
+foreach (var source in builder.Configuration.Sources.OfType<JsonConfigurationSource>())
+{
+    source.ReloadOnChange = false;
+}
 builder.Services.AddControllers();
 
 builder.Services.AddHttpContextAccessor();
