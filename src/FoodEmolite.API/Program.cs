@@ -10,8 +10,9 @@ using System.Reflection;
 using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
-
+Console.WriteLine($"[DEBUG] Jwt:SecretKey = '{builder.Configuration["Jwt:SecretKey"]}'");
 builder.Configuration.Sources.Clear();
+Console.WriteLine($"[DEBUG] Jwt:SecretKey = '{builder.Configuration["Jwt:SecretKey"]}'");
 builder.Services.AddControllers();
 
 builder.Services.AddHttpContextAccessor();
