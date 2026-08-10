@@ -28,4 +28,6 @@ public interface IStoreService
         int pageSize);
 
     Task<BaseResponse<StoreResponseDto>> GetDetailAsync(long id);
+
+    Task<BaseResponse<StoreResponseDto>> GetByRefCodeAsync(string refCode);
 }

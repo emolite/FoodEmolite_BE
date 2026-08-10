@@ -243,4 +243,33 @@ public class StoreService : IStoreService
             CreatedAt = store.CreatedAt
         });
     }
+
+    public async Task<BaseResponse<StoreResponseDto>> GetByRefCodeAsync(string refCode)
+    {
+        var repoStore = _unitOfWork.GetRepository<Store>();
+
+        var store = await repoStore.FirstOrDefaultAsync(x =>
+            x.RefCode == refCode &&
+            !x.IsDeleted &&
+            x.IsActive);
+
+        if (store is null)
+            return BaseResponse<StoreResponseDto>.Fail("Store not found");
+
+        return BaseResponse<StoreResponseDto>.Success(new StoreResponseDto
+        {
+            Id = store.Id,
+            RefCode = store.RefCode,
+            OwnerAccountId = store.OwnerAccountId,
+            StoreName = store.StoreName,
+            ThumbnailUrl = !string.IsNullOrWhiteSpace(store.ThumbnailUrl)
+                ? _cloudinaryService.BuildImageUrl(store.ThumbnailUrl)
+                : null,
+            PhoneNumber = store.PhoneNumber,
+            Address = store.Address,
+            Description = store.Description,
+            IsActive = store.IsActive,
+            CreatedAt = store.CreatedAt
+        });
+    }
 }

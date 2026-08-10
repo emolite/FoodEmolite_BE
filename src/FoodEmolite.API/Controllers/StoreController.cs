@@ -80,4 +80,12 @@ public class StoreController : BaseApiController
         var result = await _storeService.GetDetailAsync(id);
         return Ok(result);
     }
+
+    [AllowAnonymous]
+    [HttpGet("ref/{refCode}")]
+    public async Task<IActionResult> GetByRefCode(string refCode)
+    {
+        var result = await _storeService.GetByRefCodeAsync(refCode);
+        return Ok(result);
+    }
 }
