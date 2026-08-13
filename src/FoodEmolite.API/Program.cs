@@ -1,4 +1,7 @@
-﻿using FoodEmolite.Domain.Interfaces;
+﻿using FoodEmolite.API.Hubs;
+using FoodEmolite.API.Services;
+using FoodEmolite.Application.Interfaces;
+using FoodEmolite.Domain.Interfaces;
 using FoodEmolite.Infrastructure.Extensions;
 using FoodEmolite.Infrastructure.Persistence;
 using FoodEmolite.Infrastructure.Repositories;
@@ -43,6 +46,10 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 builder.Services.AddAutoServices(Assembly.Load("FoodEmolite.Application"));
 builder.Services.AddCloudinaryConfiguration(builder.Configuration);
 
+builder.Services.AddSignalR();
+builder.Services.AddScoped<IRealtimeNotificationService, RealtimeNotificationService>();
+builder.Services.AddHostedService<PromotionStatusScheduler>();
+
 builder.Services
     .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
@@ -64,6 +71,23 @@ builder.Services
                         Encoding.UTF8.GetBytes(
                             builder.Configuration["Jwt:SecretKey"]!))
             };
+
+        options.Events = new JwtBearerEvents
+        {
+            OnMessageReceived = context =>
+            {
+                var accessToken = context.Request.Query["access_token"];
+                var path = context.HttpContext.Request.Path;
+
+                if (!string.IsNullOrEmpty(accessToken) &&
+                    path.StartsWithSegments("/hubs"))
+                {
+                    context.Token = accessToken;
+                }
+
+                return Task.CompletedTask;
+            }
+        };
     });
 
 builder.Services.AddSwaggerGen(options =>
@@ -116,5 +140,7 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
+
+app.MapHub<NotificationHub>("/hubs/notification");
 
 app.Run();
