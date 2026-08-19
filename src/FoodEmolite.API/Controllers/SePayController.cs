@@ -20,7 +20,7 @@ namespace FoodEmolite.API.Controllers
 
         [HttpPost("webhook")]
         public async Task<IActionResult> Webhook([FromBody] SePayWebhookRequest request)
-        {
+        {   
             await _service.HandleAsync(request);
             return Ok(new { success = true });
         }
