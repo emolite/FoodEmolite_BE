@@ -25,12 +25,4 @@ public class CustomerController : BaseApiController
 
         return Ok(result);
     }
-
-    [HttpPost("admin/search")]
-    public async Task<IActionResult> SearchAdminCustomers([FromBody] BaseSearchRequest<CustomerSearchRequest> request)
-    {
-        var result = await _customerService.GetAdminCustomersAsync(request);
-
-        return Ok(result);
-    }
 }

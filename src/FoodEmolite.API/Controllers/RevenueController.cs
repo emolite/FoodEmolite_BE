@@ -18,13 +18,6 @@ public class RevenueController : BaseApiController
         _revenueService = revenueService;
     }
 
-    [HttpGet("admin")]
-    public async Task<IActionResult> GetAdminRevenue([FromQuery] RevenueQueryDto request)
-    {
-        var result = await _revenueService.GetAdminRevenueAsync(request);
-        return Ok(result);
-    }
-
     [HttpGet("agent")]
     public async Task<IActionResult> GetAgentRevenue([FromQuery] RevenueQueryDto request)
     {
@@ -49,17 +42,4 @@ public class RevenueController : BaseApiController
         return Ok(result);
     }
 
-    [HttpGet("admin/top-products")]
-    public async Task<IActionResult> GetAdminTopProducts([FromQuery] RevenueQueryDto request, [FromQuery] string? storeRefCode, [FromQuery] int top = 10)
-    {
-        var result = await _revenueService.GetAdminTopSellingProductsAsync(request, storeRefCode, top);
-        return Ok(result);
-    }
-
-    [HttpPost("admin/products/search")]
-    public async Task<IActionResult> SearchAdminProductRevenue([FromBody] BaseSearchRequest<ProductRevenueSearchRequest> request)
-    {
-        var result = await _revenueService.GetAdminProductRevenueAsync(request);
-        return Ok(result);
-    }
 }
