@@ -47,13 +47,6 @@ public class StoreFoodController : BaseApiController
         return Ok(result);
     }
 
-    [HttpGet]
-    public async Task<IActionResult> GetAll([FromQuery] int page     = 1, [FromQuery] int pageSize = 10)
-    {
-        var result = await _storeFoodService.GetAllAsync(page, pageSize);
-        return Ok(result);
-    }
-
     [AllowAnonymous]
     [HttpPost("store")]
     public async Task<IActionResult> GetByStoreRefCode([FromBody] BaseSearchRequest<GetStoreFoodsRequest> request)
