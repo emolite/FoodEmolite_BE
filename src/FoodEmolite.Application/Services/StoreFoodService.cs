@@ -1,4 +1,5 @@
-﻿using FoodEmolite.Application.DTOs.StoreFood;
+using FoodEmolite.Shared.Common;
+using FoodEmolite.Application.DTOs.StoreFood;
 using FoodEmolite.Application.ExternalService.Interfaces;
 using FoodEmolite.Application.Interfaces;
 using FoodEmolite.Domain.Entities;
@@ -60,7 +61,7 @@ public class StoreFoodService : IStoreFoodService
             StoreFoodCategoryId = request.StoreFoodCategoryId,
             IsAvailable = true,
             IsDeleted = false,
-            CreatedAt = DateTime.Now
+            CreatedAt = DateTimeHelper.VnNow
         };
 
         await repoStoreFood.AddAsync(storeFood);
@@ -80,7 +81,7 @@ public class StoreFoodService : IStoreFoodService
                     MaxSelect = groupRequest.MaxSelect,
                     SortOrder = groupRequest.SortOrder,
                     IsDeleted = false,
-                    CreatedAt = DateTime.Now
+                    CreatedAt = DateTimeHelper.VnNow
                 };
 
                 await repoOptionGroup.AddAsync(optionGroup);
@@ -97,7 +98,7 @@ public class StoreFoodService : IStoreFoodService
                         IsAvailable = optionRequest.IsAvailable,
                         SortOrder = optionRequest.SortOrder,
                         IsDeleted = false,
-                        CreatedAt = DateTime.Now
+                        CreatedAt = DateTimeHelper.VnNow
                     };
 
                     await repoOption.AddAsync(option);
@@ -139,7 +140,7 @@ public class StoreFoodService : IStoreFoodService
         storeFood.Quantity = request.Quantity;
         storeFood.IsAvailable = request.IsAvailable;
         storeFood.StoreFoodCategoryId = request.StoreFoodCategoryId;
-        storeFood.UpdatedAt = DateTime.Now;
+        storeFood.UpdatedAt = DateTimeHelper.VnNow;
 
         repoStoreFood.Update(storeFood);
 
@@ -191,7 +192,7 @@ public class StoreFoodService : IStoreFoodService
                     optionGroup.MaxSelect = groupRequest.MaxSelect;
                     optionGroup.SortOrder = groupRequest.SortOrder;
                     optionGroup.IsDeleted = groupRequest.IsDeleted;
-                    optionGroup.UpdatedAt = DateTime.Now;
+                    optionGroup.UpdatedAt = DateTimeHelper.VnNow;
 
                     repoOptionGroup.Update(optionGroup);
 
@@ -204,7 +205,7 @@ public class StoreFoodService : IStoreFoodService
                         foreach (var option in optionsOfDeletedGroup)
                         {
                             option.IsDeleted = true;
-                            option.UpdatedAt = DateTime.Now;
+                            option.UpdatedAt = DateTimeHelper.VnNow;
                             repoOption.Update(option);
                         }
 
@@ -226,7 +227,7 @@ public class StoreFoodService : IStoreFoodService
                         MaxSelect = groupRequest.MaxSelect,
                         SortOrder = groupRequest.SortOrder,
                         IsDeleted = false,
-                        CreatedAt = DateTime.Now
+                        CreatedAt = DateTimeHelper.VnNow
                     };
 
                     await repoOptionGroup.AddAsync(optionGroup);
@@ -250,7 +251,7 @@ public class StoreFoodService : IStoreFoodService
                         option.IsAvailable = optionRequest.IsAvailable;
                         option.SortOrder = optionRequest.SortOrder;
                         option.IsDeleted = optionRequest.IsDeleted;
-                        option.UpdatedAt = DateTime.Now;
+                        option.UpdatedAt = DateTimeHelper.VnNow;
 
                         repoOption.Update(option);
                     }
@@ -268,7 +269,7 @@ public class StoreFoodService : IStoreFoodService
                             IsAvailable = optionRequest.IsAvailable,
                             SortOrder = optionRequest.SortOrder,
                             IsDeleted = false,
-                            CreatedAt = DateTime.Now
+                            CreatedAt = DateTimeHelper.VnNow
                         };
 
                         await repoOption.AddAsync(option);
@@ -296,7 +297,7 @@ public class StoreFoodService : IStoreFoodService
             return BaseResponse<string>.Fail("Store food not found");
 
         storeFood.IsDeleted = true;
-        storeFood.UpdatedAt = DateTime.Now;
+        storeFood.UpdatedAt = DateTimeHelper.VnNow;
 
         var groups = await repoOptionGroup.Query()
             .Where(x => x.StoreFoodId == storeFood.Id && !x.IsDeleted)
@@ -311,14 +312,14 @@ public class StoreFoodService : IStoreFoodService
         foreach (var option in options)
         {
             option.IsDeleted = true;
-            option.UpdatedAt = DateTime.Now;
+            option.UpdatedAt = DateTimeHelper.VnNow;
             repoOption.Update(option);
         }
 
         foreach (var group in groups)
         {
             group.IsDeleted = true;
-            group.UpdatedAt = DateTime.Now;
+            group.UpdatedAt = DateTimeHelper.VnNow;
             repoOptionGroup.Update(group);
         }
 

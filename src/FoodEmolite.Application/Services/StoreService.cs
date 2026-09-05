@@ -1,4 +1,5 @@
-﻿using FoodEmolite.Application.DTOs.Store;
+using FoodEmolite.Shared.Common;
+using FoodEmolite.Application.DTOs.Store;
 using FoodEmolite.Application.ExternalService.Interfaces;
 using FoodEmolite.Application.Interfaces;
 using FoodEmolite.Domain.Entities;
@@ -52,7 +53,7 @@ public class StoreService : IStoreService
             Description = request.Description,
             IsActive = true,
             IsDeleted = false,
-            CreatedAt = DateTime.Now,
+            CreatedAt = DateTimeHelper.VnNow,
             CreatedBy = currentUserId
         };
 
@@ -96,7 +97,7 @@ public class StoreService : IStoreService
         store.Address = request.Address;
         store.Description = request.Description;
         store.IsActive = request.IsActive;
-        store.UpdatedAt = DateTime.Now;
+        store.UpdatedAt = DateTimeHelper.VnNow;
         store.UpdatedBy = currentUserId;
 
         repoStore.Update(store);
@@ -116,7 +117,7 @@ public class StoreService : IStoreService
             return BaseResponse<string>.Fail("Store not found");
 
         store.IsDeleted = true;
-        store.UpdatedAt = DateTime.Now;
+        store.UpdatedAt = DateTimeHelper.VnNow;
         store.UpdatedBy = currentUserId;
 
         repoStore.Update(store);

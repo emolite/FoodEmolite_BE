@@ -1,4 +1,5 @@
-﻿using FoodEmolite.Application.DTOs.Order;
+using FoodEmolite.Shared.Common;
+using FoodEmolite.Application.DTOs.Order;
 using FoodEmolite.Application.Interfaces;
 using FoodEmolite.Shared.Entities;
 using Microsoft.AspNetCore.Authorization;
@@ -107,7 +108,7 @@ public class OrderController : BaseApiController
         return File(
             result.Data!,
             "application/pdf",
-            $"orders-{DateTime.Now:yyyyMMddHHmmss}.pdf"
+            $"orders-{DateTimeHelper.VnNow:yyyyMMddHHmmss}.pdf"
         );
     }
 

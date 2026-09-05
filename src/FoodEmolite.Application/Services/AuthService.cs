@@ -1,4 +1,5 @@
-﻿using FoodEmolite.Application.DTOs.Auth;
+using FoodEmolite.Shared.Common;
+using FoodEmolite.Application.DTOs.Auth;
 using FoodEmolite.Application.Helpers;
 using FoodEmolite.Application.Interfaces;
 using FoodEmolite.Domain.Entities;
@@ -157,7 +158,7 @@ public class AuthService : IAuthService
             .ToString();
 
         var deviceName = userAgent;
-        var now = DateTime.Now;
+        var now = DateTimeHelper.VnNow;
         var refreshToken = Guid.NewGuid().ToString();
         var existingSession = await repoSession
             .FirstOrDefaultAsync(x =>

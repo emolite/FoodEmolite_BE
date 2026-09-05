@@ -1,3 +1,4 @@
+using FoodEmolite.Shared.Common;
 using FoodEmolite.Application.DTOs.ActivityLog;
 using FoodEmolite.Application.Interfaces;
 using FoodEmolite.Domain.Entities;
@@ -28,7 +29,7 @@ public class ActivityLogService : IActivityLogService
             ActorName = actorName,
             Action = action,
             Description = description,
-            CreatedAt = DateTime.Now
+            CreatedAt = DateTimeHelper.VnNow
         });
 
         await _unitOfWork.SaveChangesAsync();

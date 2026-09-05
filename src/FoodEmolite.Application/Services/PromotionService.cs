@@ -1,3 +1,4 @@
+using FoodEmolite.Shared.Common;
 using FoodEmolite.Application.DTOs.Promotion;
 using FoodEmolite.Application.DTOs.Realtime;
 using FoodEmolite.Application.ExternalService.Interfaces;
@@ -166,7 +167,7 @@ public class PromotionService : IPromotionService
         if (validationError != null)
             return BaseResponse<string>.Fail(validationError);
 
-        var now = DateTime.Now;
+        var now = DateTimeHelper.VnNow;
         string status;
 
         if (request.SaveAsDraft)
@@ -259,7 +260,7 @@ public class PromotionService : IPromotionService
         if (validationError != null)
             return BaseResponse<string>.Fail(validationError);
 
-        var now = DateTime.Now;
+        var now = DateTimeHelper.VnNow;
         string status;
 
         if (request.SaveAsDraft)
@@ -525,7 +526,7 @@ public class PromotionService : IPromotionService
             promotion.StartTime,
             promotion.EndTime,
             promotion.DaysOfWeekMask,
-            DateTime.Now);
+            DateTimeHelper.VnNow);
 
         await UpdateStatusAsync(promotion, status, currentUserId);
 
@@ -558,7 +559,7 @@ public class PromotionService : IPromotionService
             return BaseResponse<string>.Fail("Chỉ có thể xoá chương trình đang ở dạng nháp");
 
         promotion.IsDeleted = true;
-        promotion.UpdatedAt = DateTime.Now;
+        promotion.UpdatedAt = DateTimeHelper.VnNow;
         promotion.UpdatedBy = currentUserId;
 
         _unitOfWork.GetRepository<Promotion>().Update(promotion);
@@ -582,7 +583,7 @@ public class PromotionService : IPromotionService
     private async Task UpdateStatusAsync(Promotion promotion, string status, long currentUserId)
     {
         promotion.Status = status;
-        promotion.UpdatedAt = DateTime.Now;
+        promotion.UpdatedAt = DateTimeHelper.VnNow;
         promotion.UpdatedBy = currentUserId;
 
         _unitOfWork.GetRepository<Promotion>().Update(promotion);
@@ -599,7 +600,7 @@ public class PromotionService : IPromotionService
     private async Task RecomputeAndBroadcastAsync(List<Promotion> promotions)
     {
         var repoPromotion = _unitOfWork.GetRepository<Promotion>();
-        var now = DateTime.Now;
+        var now = DateTimeHelper.VnNow;
         var changed = false;
         var events = new List<PromotionStatusChangedDto>();
 

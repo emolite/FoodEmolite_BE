@@ -1,4 +1,5 @@
-﻿using FoodEmolite.Application.DTOs.StoreFoodCategories;
+using FoodEmolite.Shared.Common;
+using FoodEmolite.Application.DTOs.StoreFoodCategories;
 using FoodEmolite.Application.Interfaces;
 using FoodEmolite.Domain.Entities;
 using FoodEmolite.Domain.Interfaces;
@@ -213,7 +214,7 @@ public class StoreFoodCategoriesService : IStoreFoodCategoriesService
                 CategoryName = request.CategoryName,
                 Description = request.Description,
                 IsDelete = false,
-                CreatedAt = DateTime.Now,
+                CreatedAt = DateTimeHelper.VnNow,
                 CreatedBy = currentUserId
             };
 
@@ -254,7 +255,7 @@ public class StoreFoodCategoriesService : IStoreFoodCategoriesService
 
         category.CategoryName = request.CategoryName;
         category.Description = request.Description;
-        category.UpdatedAt = DateTime.Now;
+        category.UpdatedAt = DateTimeHelper.VnNow;
         category.UpdatedBy = currentUserId;
 
         repoCategory.Update(category);
@@ -305,7 +306,7 @@ public class StoreFoodCategoriesService : IStoreFoodCategoriesService
         }
 
         category.IsDelete = true;
-        category.UpdatedAt = DateTime.Now;
+        category.UpdatedAt = DateTimeHelper.VnNow;
         category.UpdatedBy = currentUserId;
 
         repoCategory.Update(category);

@@ -1,4 +1,5 @@
-﻿using FoodEmolite.Application.DTOs.Profile;
+using FoodEmolite.Shared.Common;
+using FoodEmolite.Application.DTOs.Profile;
 using FoodEmolite.Application.DTOs.Store;
 using FoodEmolite.Application.ExternalService.Interfaces;
 using FoodEmolite.Application.Interfaces;
@@ -367,7 +368,7 @@ public class ProfileService : IProfileService
             return BaseResponse<GuestProfileResponseDto>.Fail("Không tìm thấy khách hàng.");
 
         customer.CustomerName = request.CustomerName.Trim();
-        customer.UpdatedAt = DateTime.Now;
+        customer.UpdatedAt = DateTimeHelper.VnNow;
 
         repoCustomer.Update(customer);
         await _unitOfWork.SaveChangesAsync();
@@ -514,7 +515,7 @@ public class ProfileService : IProfileService
         profile.Gender = request.Gender;
         profile.DateOfBirth = request.DateOfBirth;
         profile.Address = request.Address;
-        profile.UpdatedAt = DateTime.Now;
+        profile.UpdatedAt = DateTimeHelper.VnNow;
         profile.UpdatedBy = currentUserId;
 
         repoProfile.Update(profile);
@@ -553,7 +554,7 @@ public class ProfileService : IProfileService
             foreach (var item in defaultBanks)
             {
                 item.IsDefault = false;
-                item.UpdatedAt = DateTime.Now;
+                item.UpdatedAt = DateTimeHelper.VnNow;
                 item.UpdatedBy = currentUserId;
 
                 repoBank.Update(item);
@@ -570,7 +571,7 @@ public class ProfileService : IProfileService
             AccountHolderName = request.AccountHolderName,
             IsDefault = request.IsDefault,
             IsActive = true,
-            CreatedAt = DateTime.Now,
+            CreatedAt = DateTimeHelper.VnNow,
             CreatedBy = currentUserId
         };
 
@@ -617,7 +618,7 @@ public class ProfileService : IProfileService
             foreach (var item in defaultBanks)
             {
                 item.IsDefault = false;
-                item.UpdatedAt = DateTime.Now;
+                item.UpdatedAt = DateTimeHelper.VnNow;
                 item.UpdatedBy = currentUserId;
 
                 repoBank.Update(item);
@@ -629,7 +630,7 @@ public class ProfileService : IProfileService
         bankAccount.AccountNumber = request.AccountNumber;
         bankAccount.AccountHolderName = request.AccountHolderName;
         bankAccount.IsDefault = request.IsDefault;
-        bankAccount.UpdatedAt = DateTime.Now;
+        bankAccount.UpdatedAt = DateTimeHelper.VnNow;
         bankAccount.UpdatedBy = currentUserId;
 
         repoBank.Update(bankAccount);

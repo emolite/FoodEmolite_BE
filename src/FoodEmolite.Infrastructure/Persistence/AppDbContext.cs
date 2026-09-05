@@ -1,4 +1,5 @@
 ﻿using FoodEmolite.Domain.Entities;
+using FoodEmolite.Shared.Common;
 using FoodEmolite.Shared.Entities;
 using Microsoft.EntityFrameworkCore;
 using System.Reflection.Emit;
@@ -62,12 +63,12 @@ public class AppDbContext : DbContext
         {
             if (entry.State == EntityState.Added)
             {
-                entry.Entity.CreatedAt = DateTime.Now;
+                entry.Entity.CreatedAt = DateTimeHelper.VnNow;
             }
 
             if (entry.State == EntityState.Modified)
             {
-                entry.Entity.UpdatedAt = DateTime.Now;
+                entry.Entity.UpdatedAt = DateTimeHelper.VnNow;
             }
         }
 
