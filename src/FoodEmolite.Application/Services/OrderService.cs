@@ -1,4 +1,5 @@
-﻿using FoodEmolite.Application.DTOs.Order;
+using FoodEmolite.Shared.Common;
+using FoodEmolite.Application.DTOs.Order;
 using FoodEmolite.Application.DTOs.Print;
 using FoodEmolite.Application.DTOs.Promotion;
 using FoodEmolite.Application.DTOs.Realtime;
@@ -156,7 +157,7 @@ public class OrderService : IOrderService
             OrderStatus = "PENDING",
             PaymentStatus = "UNPAID",
             Note = request.Note,
-            CreatedAt = DateTime.Now,
+            CreatedAt = DateTimeHelper.VnNow,
             CreatedBy = currentUserId
         };
 
@@ -179,7 +180,7 @@ public class OrderService : IOrderService
                 Quantity = item.Quantity,
                 UnitPrice = unitPrice,
                 TotalPrice = totalPrice,
-                CreatedAt = DateTime.Now,
+                CreatedAt = DateTimeHelper.VnNow,
                 CreatedBy = currentUserId
             };
 
@@ -199,7 +200,7 @@ public class OrderService : IOrderService
                         OptionId = option.OptionId,
                         OptionName = option.OptionName,
                         AdditionalPrice = option.AdditionalPrice,
-                        CreatedAt = DateTime.Now,
+                        CreatedAt = DateTimeHelper.VnNow,
                         CreatedBy = currentUserId
                     });
                 }
@@ -218,7 +219,7 @@ public class OrderService : IOrderService
                 Quantity = gift.Quantity,
                 UnitPrice = 0,
                 TotalPrice = 0,
-                CreatedAt = DateTime.Now,
+                CreatedAt = DateTimeHelper.VnNow,
                 CreatedBy = currentUserId
             });
 
@@ -232,7 +233,7 @@ public class OrderService : IOrderService
             OldStatus = null,
             NewStatus = order.OrderStatus,
             ChangedNote = order.Note,
-            CreatedAt = DateTime.Now,
+            CreatedAt = DateTimeHelper.VnNow,
             CreatedBy = currentUserId
         });
 
@@ -388,7 +389,7 @@ public class OrderService : IOrderService
                 CustomerCode = GenerateCustomerCode(),
                 CustomerName = request.CustomerName.Trim(),
                 DeviceId = request.DeviceId,
-                CreatedAt = DateTime.Now
+                CreatedAt = DateTimeHelper.VnNow
             };
 
             await repoCustomer.AddAsync(customer);
@@ -415,7 +416,7 @@ public class OrderService : IOrderService
             OrderStatus = "PENDING",
             PaymentStatus = "UNPAID",
             Note = request.Note,
-            CreatedAt = DateTime.Now,
+            CreatedAt = DateTimeHelper.VnNow,
             CreatedBy = null,
             IpAddress = GetClientIp()
         };
@@ -439,7 +440,7 @@ public class OrderService : IOrderService
                 Quantity = item.Quantity,
                 UnitPrice = unitPrice,
                 TotalPrice = totalPrice,
-                CreatedAt = DateTime.Now,
+                CreatedAt = DateTimeHelper.VnNow,
                 CreatedBy = null
             };
 
@@ -459,7 +460,7 @@ public class OrderService : IOrderService
                         OptionId = option.OptionId,
                         OptionName = option.OptionName,
                         AdditionalPrice = option.AdditionalPrice,
-                        CreatedAt = DateTime.Now,
+                        CreatedAt = DateTimeHelper.VnNow,
                         CreatedBy = null
                     });
                 }
@@ -478,7 +479,7 @@ public class OrderService : IOrderService
                 Quantity = gift.Quantity,
                 UnitPrice = 0,
                 TotalPrice = 0,
-                CreatedAt = DateTime.Now,
+                CreatedAt = DateTimeHelper.VnNow,
                 CreatedBy = null
             });
 
@@ -492,7 +493,7 @@ public class OrderService : IOrderService
             OldStatus = null,
             NewStatus = order.OrderStatus,
             ChangedNote = order.Note,
-            CreatedAt = DateTime.Now,
+            CreatedAt = DateTimeHelper.VnNow,
             CreatedBy = null
         });
 
@@ -997,7 +998,7 @@ public class OrderService : IOrderService
         var oldStatus = order.OrderStatus;
 
         order.OrderStatus = request.NewStatus;
-        order.UpdatedAt = DateTime.Now;
+        order.UpdatedAt = DateTimeHelper.VnNow;
         order.UpdatedBy = currentUserId;
 
         repoOrder.Update(order);
@@ -1009,7 +1010,7 @@ public class OrderService : IOrderService
             OldStatus = oldStatus,
             NewStatus = request.NewStatus,
             ChangedNote = request.ChangedNote,
-            CreatedAt = DateTime.Now,
+            CreatedAt = DateTimeHelper.VnNow,
             CreatedBy = currentUserId
         });
 
@@ -1037,7 +1038,7 @@ public class OrderService : IOrderService
         var oldStatus = order.PaymentStatus;
 
         order.PaymentStatus = request.NewStatus;
-        order.UpdatedAt = DateTime.Now;
+        order.UpdatedAt = DateTimeHelper.VnNow;
         order.UpdatedBy = currentUserId;
 
         repoOrder.Update(order);
@@ -1049,7 +1050,7 @@ public class OrderService : IOrderService
             OldStatus = oldStatus,
             NewStatus = request.NewStatus,
             ChangedNote = request.ChangedNote,
-            CreatedAt = DateTime.Now,
+            CreatedAt = DateTimeHelper.VnNow,
             CreatedBy = currentUserId
         });
 
@@ -1089,7 +1090,7 @@ public class OrderService : IOrderService
         var oldStatus = order.OrderStatus;
 
         order.OrderStatus = "CANCELLED";
-        order.UpdatedAt = DateTime.Now;
+        order.UpdatedAt = DateTimeHelper.VnNow;
         order.UpdatedBy = currentUserId;
 
         repoOrder.Update(order);
@@ -1101,7 +1102,7 @@ public class OrderService : IOrderService
             OldStatus = oldStatus,
             NewStatus = "CANCELLED",
             ChangedNote = null,
-            CreatedAt = DateTime.Now,
+            CreatedAt = DateTimeHelper.VnNow,
             CreatedBy = currentUserId
         });
 
@@ -1529,7 +1530,7 @@ public class OrderService : IOrderService
                 .Select(_ => chars[Random.Shared.Next(chars.Length)])
                 .ToArray());
 
-        return $"EMF{DateTime.Now:yyMMdd-HHmmss}-{randomPart}";
+        return $"EMF{DateTimeHelper.VnNow:yyMMdd-HHmmss}-{randomPart}";
     }
 
     private string FormatCurrency(decimal value)
@@ -1590,7 +1591,7 @@ public class OrderService : IOrderService
                         .FontSize(16);
 
                     header.Item().AlignCenter()
-                        .Text($"Ngày in: {DateTime.Now:dd/MM/yyyy HH:mm}")
+                        .Text($"Ngày in: {DateTimeHelper.VnNow:dd/MM/yyyy HH:mm}")
                         .FontSize(9)
                         .FontColor(Colors.Grey.Darken1);
                 });

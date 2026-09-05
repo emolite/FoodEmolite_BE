@@ -1,4 +1,5 @@
-﻿
+using FoodEmolite.Shared.Common;
+
 using FoodEmolite.Application.DTOs.SePay;
 using FoodEmolite.Application.ExternalService.Interfaces;
 using FoodEmolite.Domain.Entities;
@@ -19,7 +20,7 @@ public class SePayWebhookService : ISePayWebhookService
     {
         var repoTransaction = _unitOfWork.GetRepository<PaymentTransaction>();
         var repoOrder = _unitOfWork.GetRepository<Order>();
-        var now = DateTime.Now;
+        var now = DateTimeHelper.VnNow;
 
         var existed = await repoTransaction.FirstOrDefaultAsync(x =>
             x.TransactionId == request.TransactionId);
