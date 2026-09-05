@@ -115,6 +115,70 @@ public class StoreFoodCategoriesService : IStoreFoodCategoriesService
         };
     }
 
+    public async Task<BaseTableResponse<StoreFoodCategoryResponseDto>> GetAllForAdminAsync(int page, int pageSize, string? keyword, string? storeRefCode, string? sortBy = null, bool asc = false)
+    {
+        var repoCategory = _unitOfWork.GetRepository<StoreFoodCategories>();
+        var repoStore = _unitOfWork.GetRepository<Store>();
+
+        page = page <= 0 ? 1 : page;
+        pageSize = pageSize <= 0 ? 10 : pageSize;
+
+        var query =
+            from category in repoCategory.Query().AsNoTracking()
+            join store in repoStore.Query().AsNoTracking()
+                on category.StoreRefCode equals store.RefCode
+            where !category.IsDelete
+            select new { category, store.StoreName };
+
+        if (!string.IsNullOrWhiteSpace(storeRefCode))
+        {
+            query = query.Where(x => x.category.StoreRefCode == storeRefCode);
+        }
+
+        var trimmedKeyword = keyword?.Trim();
+
+        if (!string.IsNullOrWhiteSpace(trimmedKeyword))
+        {
+            query = query.Where(x => x.category.CategoryName.Contains(trimmedKeyword));
+        }
+
+        var totalRecords = await query.CountAsync();
+
+        query = sortBy?.ToLower() switch
+        {
+            "categoryname" => asc
+                ? query.OrderBy(x => x.category.CategoryName)
+                : query.OrderByDescending(x => x.category.CategoryName),
+
+            _ => asc
+                ? query.OrderBy(x => x.category.CreatedAt)
+                : query.OrderByDescending(x => x.category.CreatedAt)
+        };
+
+        var items = await query
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .Select(x => new StoreFoodCategoryResponseDto
+            {
+                Id = x.category.Id,
+                RefCode = x.category.RefCode,
+                CategoryName = x.category.CategoryName,
+                Description = x.category.Description,
+                CreatedAt = x.category.CreatedAt,
+                StoreRefCode = x.category.StoreRefCode,
+                StoreName = x.StoreName
+            })
+            .ToListAsync();
+
+        return new BaseTableResponse<StoreFoodCategoryResponseDto>
+        {
+            Items = items,
+            Page = page,
+            PageSize = pageSize,
+            TotalRecords = totalRecords
+        };
+    }
+
     public async Task<BaseResponse<string>> CreateAsync(long currentUserId, string refCode, CreateStoreFoodCategoryRequest request)
     {
         var repoStore = _unitOfWork.GetRepository<Store>();

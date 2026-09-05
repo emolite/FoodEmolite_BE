@@ -328,7 +328,7 @@ public class StoreFoodService : IStoreFoodService
         return BaseResponse<string>.Success("Delete store food successfully");
     }
 
-    public async Task<BaseTableResponse<StoreFoodResponseDto>> GetAllAsync(int page, int pageSize)
+    public async Task<BaseTableResponse<StoreFoodResponseDto>> GetAllAsync(int page, int pageSize, string? storeRefCode = null, string? keyword = null)
     {
         var repoStoreFood = _unitOfWork.GetRepository<StoreFood>();
         var repoStore = _unitOfWork.GetRepository<Store>();
@@ -348,6 +348,18 @@ public class StoreFoodService : IStoreFoodService
                 StoreFood = storeFood,
                 StoreName = store.StoreName
             };
+
+        if (!string.IsNullOrWhiteSpace(storeRefCode))
+        {
+            query = query.Where(x => x.StoreFood.StoreRefCode == storeRefCode);
+        }
+
+        var trimmedKeyword = keyword?.Trim();
+
+        if (!string.IsNullOrWhiteSpace(trimmedKeyword))
+        {
+            query = query.Where(x => x.StoreFood.FoodName.Contains(trimmedKeyword));
+        }
 
         var totalRecords = await query.CountAsync();
 

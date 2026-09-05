@@ -1,7 +1,10 @@
+using FoodEmolite.Application.DTOs.ActivityLog;
 using FoodEmolite.Application.DTOs.Auth;
 using FoodEmolite.Application.DTOs.Customer;
+using FoodEmolite.Application.DTOs.Order;
 using FoodEmolite.Application.DTOs.Revenue;
 using FoodEmolite.Application.DTOs.Store;
+using FoodEmolite.Application.DTOs.StoreFoodCategories;
 using FoodEmolite.Application.Interfaces;
 using FoodEmolite.Shared.Entities;
 using Microsoft.AspNetCore.Authorization;
@@ -27,6 +30,9 @@ public class AdminController : ControllerBase
     private readonly IRevenueService _revenueService;
     private readonly ICustomerService _customerService;
     private readonly IStoreFoodService _storeFoodService;
+    private readonly IStoreFoodCategoriesService _storeFoodCategoriesService;
+    private readonly IOrderService _orderService;
+    private readonly IActivityLogService _activityLogService;
 
     public AdminController(
         IStoreService storeService,
@@ -34,7 +40,10 @@ public class AdminController : ControllerBase
         IAuthService authService,
         IRevenueService revenueService,
         ICustomerService customerService,
-        IStoreFoodService storeFoodService)
+        IStoreFoodService storeFoodService,
+        IStoreFoodCategoriesService storeFoodCategoriesService,
+        IOrderService orderService,
+        IActivityLogService activityLogService)
     {
         _storeService = storeService;
         _profileService = profileService;
@@ -42,6 +51,9 @@ public class AdminController : ControllerBase
         _revenueService = revenueService;
         _customerService = customerService;
         _storeFoodService = storeFoodService;
+        _storeFoodCategoriesService = storeFoodCategoriesService;
+        _orderService = orderService;
+        _activityLogService = activityLogService;
     }
 
     // ===================== Stores =====================
@@ -68,9 +80,13 @@ public class AdminController : ControllerBase
     }
 
     [HttpGet("stores")]
-    public async Task<IActionResult> GetAllStores([FromQuery] int page = 1, [FromQuery] int pageSize = 10)
+    public async Task<IActionResult> GetAllStores(
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 10,
+        [FromQuery] string? keyword = null,
+        [FromQuery] bool? isActive = null)
     {
-        var result = await _storeService.GetAllAsync(page, pageSize);
+        var result = await _storeService.GetAllAsync(page, pageSize, keyword, isActive);
         return Ok(result);
     }
 
@@ -94,16 +110,23 @@ public class AdminController : ControllerBase
     // ===================== Accounts =====================
 
     [HttpGet("users")]
-    public async Task<IActionResult> GetAllUsers([FromQuery] int page = 1, [FromQuery] int pageSize = 10)
+    public async Task<IActionResult> GetAllUsers(
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 10,
+        [FromQuery] string? keyword = null)
     {
-        var result = await _profileService.GetAllAccountProfilesAsync(page, pageSize);
+        var result = await _profileService.GetAllAccountProfilesAsync(page, pageSize, keyword);
         return Ok(result);
     }
 
     [HttpGet("agents")]
-    public async Task<IActionResult> GetAllAgents([FromQuery] int page = 1, [FromQuery] int pageSize = 10)
+    public async Task<IActionResult> GetAllAgents(
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 10,
+        [FromQuery] string? keyword = null,
+        [FromQuery] bool? isActive = null)
     {
-        var result = await _profileService.GetAllAgentProfilesAsync(page, pageSize);
+        var result = await _profileService.GetAllAgentProfilesAsync(page, pageSize, keyword, isActive);
         return Ok(result);
     }
 
@@ -152,9 +175,46 @@ public class AdminController : ControllerBase
     // ===================== Store foods =====================
 
     [HttpGet("store-foods")]
-    public async Task<IActionResult> GetAllStoreFoods([FromQuery] int page = 1, [FromQuery] int pageSize = 10)
+    public async Task<IActionResult> GetAllStoreFoods(
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 10,
+        [FromQuery] string? storeRefCode = null,
+        [FromQuery] string? keyword = null)
     {
-        var result = await _storeFoodService.GetAllAsync(page, pageSize);
+        var result = await _storeFoodService.GetAllAsync(page, pageSize, storeRefCode, keyword);
+        return Ok(result);
+    }
+
+    // ===================== Store food categories =====================
+
+    [HttpGet("categories")]
+    public async Task<IActionResult> GetAllCategories(
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 10,
+        [FromQuery] string? keyword = null,
+        [FromQuery] string? storeRefCode = null,
+        [FromQuery] string? sortBy = null,
+        [FromQuery] bool asc = false)
+    {
+        var result = await _storeFoodCategoriesService.GetAllForAdminAsync(page, pageSize, keyword, storeRefCode, sortBy, asc);
+        return Ok(result);
+    }
+
+    // ===================== Orders =====================
+
+    [HttpPost("orders/search")]
+    public async Task<IActionResult> SearchOrders([FromBody] BaseSearchRequest<OrderSearchRequest> request)
+    {
+        var result = await _orderService.GetAllForAdminAsync(request);
+        return Ok(result);
+    }
+
+    // ===================== Activity logs =====================
+
+    [HttpPost("activity-logs/search")]
+    public async Task<IActionResult> SearchActivityLogs([FromBody] BaseSearchRequest<ActivityLogSearchRequest> request)
+    {
+        var result = await _activityLogService.SearchAsync(request);
         return Ok(result);
     }
 }
