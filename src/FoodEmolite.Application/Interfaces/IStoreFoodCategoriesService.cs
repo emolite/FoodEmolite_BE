@@ -14,6 +14,9 @@ namespace FoodEmolite.Application.Interfaces
         Task<BaseResponse<List<StoreFoodCategoryResponseDto>>> GetByStoreRefCodeAsync(GetByStoreRefCodeRequest request);
         Task<BaseTableResponse<StoreFoodCategoryResponseDto>> SearchAsync(long currentUserId, BaseSearchRequest<StoreFoodCategorySearchRequest> request);
 
+        /// <summary>Danh sách danh mục toàn hệ thống (mọi cửa hàng) — dùng cho admin, không lọc theo currentUserId.</summary>
+        Task<BaseTableResponse<StoreFoodCategoryResponseDto>> GetAllForAdminAsync(int page, int pageSize, string? keyword, string? storeRefCode, string? sortBy = null, bool asc = false);
+
         Task<BaseResponse<string>> CreateAsync(long currentUserId, string refCode, CreateStoreFoodCategoryRequest request);
 
         Task<BaseResponse<string>> UpdateAsync(long currentUserId, UpdateStoreFoodCategoryRequest request);

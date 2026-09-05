@@ -22,17 +22,20 @@ public class OrderService : IOrderService
     private readonly IHttpContextAccessor _httpContextAccessor;
     private readonly IRealtimeNotificationService _realtimeNotificationService;
     private readonly IPromotionService _promotionService;
+    private readonly IActivityLogService _activityLogService;
 
     public OrderService(
         IUnitOfWork unitOfWork,
         IHttpContextAccessor httpContextAccessor,
         IRealtimeNotificationService realtimeNotificationService,
-        IPromotionService promotionService)
+        IPromotionService promotionService,
+        IActivityLogService activityLogService)
     {
         _unitOfWork = unitOfWork;
         _httpContextAccessor = httpContextAccessor;
         _realtimeNotificationService = realtimeNotificationService;
         _promotionService = promotionService;
+        _activityLogService = activityLogService;
     }
 
     public async Task<BaseResponse<CreateOrderResponseDto>> CreateAsync(long currentUserId, string refCode, CreateOrderRequestDto request)
@@ -236,7 +239,17 @@ public class OrderService : IOrderService
         await _unitOfWork.SaveChangesAsync();
 
         await BroadcastFoodQuantitiesAsync(request.StoreRefCode, foods.Concat(giftFoods));
-        await BroadcastNewOrderAsync(order, await GetCustomerDisplayNameAsync(currentUserId));
+
+        var customerDisplayName = await GetCustomerDisplayNameAsync(currentUserId);
+
+        await BroadcastNewOrderAsync(order, customerDisplayName);
+
+        await _activityLogService.LogAsync(
+            "Customer",
+            currentUserId,
+            customerDisplayName,
+            "CREATE_ORDER",
+            $"Tạo đơn hàng \"{order.OrderCode}\" tại cửa hàng \"{store.StoreName}\", tổng tiền {order.TotalAmount:N0}đ");
 
         return BaseResponse<CreateOrderResponseDto>.Success(
             new CreateOrderResponseDto
@@ -487,6 +500,13 @@ public class OrderService : IOrderService
 
         await BroadcastFoodQuantitiesAsync(request.StoreRefCode, foods.Concat(giftFoods));
         await BroadcastNewOrderAsync(order, customer.CustomerName);
+
+        await _activityLogService.LogAsync(
+            "Guest",
+            customer.Id,
+            customer.CustomerName,
+            "CREATE_ORDER",
+            $"Khách vãng lai tạo đơn hàng \"{order.OrderCode}\" tại cửa hàng \"{store.StoreName}\", tổng tiền {order.TotalAmount:N0}đ");
 
         return BaseResponse<CreateOrderResponseDto>.Success(
             new CreateOrderResponseDto
@@ -798,6 +818,171 @@ public class OrderService : IOrderService
         };
     }
 
+    public async Task<BaseTableResponse<OrderResponseDto>> GetAllForAdminAsync(BaseSearchRequest<OrderSearchRequest> request)
+    {
+        var repoOrder = _unitOfWork.GetRepository<Order>();
+        var repoOrderItem = _unitOfWork.GetRepository<OrderItem>();
+        var repoFood = _unitOfWork.GetRepository<StoreFood>();
+        var repoAccount = _unitOfWork.GetRepository<Account>();
+        var repoAccountProfile = _unitOfWork.GetRepository<AccountProfile>();
+        var repoCustomer = _unitOfWork.GetRepository<Customer>();
+
+        request.Page = request.Page <= 0 ? 1 : request.Page;
+        request.PageSize = request.PageSize <= 0 ? 10 : request.PageSize;
+
+        var search = request.SearchParams;
+
+        var query = repoOrder
+            .Query()
+            .AsNoTracking();
+
+        if (!string.IsNullOrWhiteSpace(search?.StoreRefCode))
+        {
+            query = query.Where(x => x.StoreRefCode == search.StoreRefCode);
+        }
+
+        if (!string.IsNullOrWhiteSpace(search?.OrderStatus))
+        {
+            query = query.Where(x => x.OrderStatus == search.OrderStatus);
+        }
+
+        if (!string.IsNullOrWhiteSpace(search?.PaymentStatus))
+        {
+            query = query.Where(x => x.PaymentStatus == search.PaymentStatus);
+        }
+
+        if (search?.FromDate != null)
+        {
+            var fromDate = search.FromDate.Value.Date;
+            query = query.Where(x => x.CreatedAt >= fromDate);
+        }
+
+        if (search?.ToDate != null)
+        {
+            var toDate = search.ToDate.Value.Date.AddDays(1);
+            query = query.Where(x => x.CreatedAt < toDate);
+        }
+
+        var projectedQuery =
+            from order in query
+
+            join account in repoAccount.Query().AsNoTracking()
+                on order.CustomerAccountId equals account.Id into accountGroup
+            from account in accountGroup.DefaultIfEmpty()
+
+            join profile in repoAccountProfile.Query().AsNoTracking()
+                on account.Id equals profile.AccountId into profileGroup
+            from profile in profileGroup.DefaultIfEmpty()
+
+            join customer in repoCustomer.Query().AsNoTracking()
+                on order.CustomerId equals customer.Id into customerGroup
+            from customer in customerGroup.DefaultIfEmpty()
+
+            select new OrderResponseDto
+            {
+                Id = order.Id,
+                OrderCode = order.OrderCode,
+                RefCode = order.RefCode,
+
+                CustomerAccountId = (long)order.CustomerAccountId,
+
+                CustomerName =
+                    account != null
+                        ? (
+                            profile != null && !string.IsNullOrEmpty(profile.FullName)
+                                ? profile.FullName
+                                : account.Username
+                        )
+                        : (
+                            customer != null
+                                ? customer.CustomerName
+                                : "Khách vãng lai"
+                        ),
+
+                StoreRefCode = order.StoreRefCode,
+                TotalAmount = order.TotalAmount,
+                OrderStatus = order.OrderStatus,
+                PaymentStatus = order.PaymentStatus,
+                Note = order.Note,
+                CreatedAt = order.CreatedAt,
+                Items = new List<OrderItemResponseDto>()
+            };
+
+        if (!string.IsNullOrWhiteSpace(search?.Keyword))
+        {
+            var keyword = search.Keyword.Trim().ToLower();
+
+            projectedQuery = projectedQuery.Where(x =>
+                x.OrderCode.ToLower().Contains(keyword) ||
+                x.RefCode.ToLower().Contains(keyword) ||
+                x.CustomerName.ToLower().Contains(keyword) ||
+                (x.Note != null && x.Note.ToLower().Contains(keyword))
+            );
+        }
+
+        var totalRecords = await projectedQuery.CountAsync();
+
+        projectedQuery = request.SortBy switch
+        {
+            "totalAmount" => request.Asc
+                ? projectedQuery.OrderBy(x => x.TotalAmount)
+                : projectedQuery.OrderByDescending(x => x.TotalAmount),
+
+            "createdAt" => request.Asc
+                ? projectedQuery.OrderBy(x => x.CreatedAt)
+                : projectedQuery.OrderByDescending(x => x.CreatedAt),
+
+            "orderCode" => request.Asc
+                ? projectedQuery.OrderBy(x => x.OrderCode)
+                : projectedQuery.OrderByDescending(x => x.OrderCode),
+
+            _ => projectedQuery.OrderByDescending(x => x.Id)
+        };
+
+        var items = await projectedQuery
+            .Skip((request.Page - 1) * request.PageSize)
+            .Take(request.PageSize)
+            .ToListAsync();
+
+        var orderIds = items
+            .Select(x => x.Id)
+            .ToList();
+
+        var orderItems = await (
+            from orderItem in repoOrderItem.Query().AsNoTracking()
+            join food in repoFood.Query().AsNoTracking()
+                on orderItem.StoreFoodId equals food.Id
+            where orderIds.Contains(orderItem.OrderId)
+            select new OrderItemResponseDto
+            {
+                Id = orderItem.Id,
+                OrderId = orderItem.OrderId,
+                StoreFoodId = orderItem.StoreFoodId,
+                FoodName = food.FoodName,
+                Quantity = orderItem.Quantity,
+                UnitPrice = orderItem.UnitPrice,
+                TotalPrice = orderItem.TotalPrice
+            })
+            .ToListAsync();
+
+        await FillOrderItemOptionsAsync(orderItems);
+
+        foreach (var order in items)
+        {
+            order.Items = orderItems
+                .Where(x => x.OrderId == order.Id)
+                .ToList();
+        }
+
+        return new BaseTableResponse<OrderResponseDto>
+        {
+            Items = items,
+            Page = request.Page,
+            PageSize = request.PageSize,
+            TotalRecords = totalRecords
+        };
+    }
+
     public async Task<BaseResponse<string>> UpdateStatusAsync(long id, long currentUserId, string refCode, UpdateOrderStatusRequestDto request)
     {
         var repoOrder = _unitOfWork.GetRepository<Order>();
@@ -869,6 +1054,18 @@ public class OrderService : IOrderService
         });
 
         await _unitOfWork.SaveChangesAsync();
+
+        if (request.NewStatus == "PAID")
+        {
+            var confirmerName = await GetCustomerDisplayNameAsync(currentUserId);
+
+            await _activityLogService.LogAsync(
+                "Agent",
+                currentUserId,
+                confirmerName,
+                "CONFIRM_PAYMENT",
+                $"Xác nhận thanh toán đơn hàng \"{order.OrderCode}\", tổng tiền {order.TotalAmount:N0}đ");
+        }
 
         return BaseResponse<string>.Success("Update payment status successfully");
     }

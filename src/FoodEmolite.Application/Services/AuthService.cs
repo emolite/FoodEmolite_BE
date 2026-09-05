@@ -14,15 +14,18 @@ public class AuthService : IAuthService
     private readonly IUnitOfWork _unitOfWork;
     private readonly IConfiguration _configuration;
     private readonly IHttpContextAccessor _httpContextAccessor;
+    private readonly IActivityLogService _activityLogService;
 
     public AuthService(
         IUnitOfWork unitOfWork,
         IConfiguration configuration,
-        IHttpContextAccessor httpContextAccessor)
+        IHttpContextAccessor httpContextAccessor,
+        IActivityLogService activityLogService)
     {
         _unitOfWork = unitOfWork;
         _configuration = configuration;
         _httpContextAccessor = httpContextAccessor;
+        _activityLogService = activityLogService;
     }
 
     public async Task<BaseResponse<string>> RegisterAsync(RegisterRequest request)
@@ -92,6 +95,13 @@ public class AuthService : IAuthService
 
         await repoAccount.AddAsync(account);
         await _unitOfWork.SaveChangesAsync();
+
+        await _activityLogService.LogAsync(
+            "System",
+            account.Id,
+            account.Username,
+            "CREATE_AGENT",
+            $"Tạo đại lý \"{account.Username}\" ({account.Email})");
 
         return BaseResponse<string>.Success("Create account successfully");
     }

@@ -12,13 +12,16 @@ public class StoreService : IStoreService
 {
     private readonly IUnitOfWork _unitOfWork;
     private readonly ICloudinaryService _cloudinaryService;
+    private readonly IActivityLogService _activityLogService;
 
     public StoreService(
         IUnitOfWork unitOfWork,
-        ICloudinaryService cloudinaryService)
+        ICloudinaryService cloudinaryService,
+        IActivityLogService activityLogService)
     {
         _unitOfWork = unitOfWork;
         _cloudinaryService = cloudinaryService;
+        _activityLogService = activityLogService;
     }
 
     public async Task<BaseResponse<string>> CreateAsync(long currentUserId, CreateStoreRequestDto request)
@@ -55,6 +58,13 @@ public class StoreService : IStoreService
 
         await repoStore.AddAsync(store);
         await _unitOfWork.SaveChangesAsync();
+
+        await _activityLogService.LogAsync(
+            currentUserId > 0 ? "Agent" : "System",
+            currentUserId > 0 ? currentUserId : null,
+            null,
+            "CREATE_STORE",
+            $"Tạo cửa hàng \"{store.StoreName}\"");
 
         return BaseResponse<string>.Success("Create store successfully");
     }
@@ -115,7 +125,7 @@ public class StoreService : IStoreService
         return BaseResponse<string>.Success("Delete store successfully");
     }
 
-    public async Task<BaseTableResponse<StoreResponseDto>> GetAllAsync(int page, int pageSize)
+    public async Task<BaseTableResponse<StoreResponseDto>> GetAllAsync(int page, int pageSize, string? keyword = null, bool? isActive = null)
     {
         var repoStore = _unitOfWork.GetRepository<Store>();
 
@@ -126,6 +136,18 @@ public class StoreService : IStoreService
             .Query()
             .AsNoTracking()
             .Where(x => !x.IsDeleted);
+
+        var trimmedKeyword = keyword?.Trim();
+
+        if (!string.IsNullOrWhiteSpace(trimmedKeyword))
+        {
+            query = query.Where(x => x.StoreName.Contains(trimmedKeyword));
+        }
+
+        if (isActive.HasValue)
+        {
+            query = query.Where(x => x.IsActive == isActive.Value);
+        }
 
         var totalRecords = await query.CountAsync();
 
@@ -200,7 +222,9 @@ public class StoreService : IStoreService
                 RefCode = x.RefCode,
                 OwnerAccountId = x.OwnerAccountId,
                 StoreName = x.StoreName,
-                ThumbnailUrl = x.ThumbnailUrl,
+                ThumbnailUrl = !string.IsNullOrWhiteSpace(x.ThumbnailUrl)
+                    ? _cloudinaryService.BuildImageUrl(x.ThumbnailUrl)
+                    : null,
                 PhoneNumber = x.PhoneNumber,
                 Address = x.Address,
                 Description = x.Description,

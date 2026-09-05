@@ -17,5 +17,10 @@ namespace FoodEmolite.Application.DTOs.StoreFoodCategories
         public string? Description { get; set; }
 
         public DateTime CreatedAt { get; set; }
+
+        /// <summary>Chỉ được điền khi lấy danh sách toàn hệ thống (admin), null ở các API theo store.</summary>
+        public string? StoreRefCode { get; set; }
+
+        public string? StoreName { get; set; }
     }
 }

@@ -23,40 +23,41 @@ public class ProfileService : IProfileService
         _cloudinaryService = cloudinaryService;
     }
 
-    public async Task<BaseTableResponse<UserProfileResponseDto>> GetAllAccountProfilesAsync(int page, int pageSize)
+    public async Task<BaseTableResponse<UserProfileResponseDto>> GetAllAccountProfilesAsync(int page, int pageSize, string? keyword = null)
     {
         var repoAccount = _unitOfWork.GetRepository<Account>();
         var repoProfile = _unitOfWork.GetRepository<AccountProfile>();
 
-        var accountQuery = repoAccount
-            .Query()
-            .AsNoTracking()
-            .Where(x =>
-                !x.IsDeleted &&
-                x.Role == "User");
+        var query =
+            from account in repoAccount.Query().AsNoTracking()
+            where !account.IsDeleted && account.Role == "User"
+            join profile in repoProfile.Query().AsNoTracking()
+                on account.Id equals profile.AccountId into profileGroup
+            from profile in profileGroup.DefaultIfEmpty()
+            select new { account, profile };
 
-        var totalRecords = await accountQuery.CountAsync();
+        var trimmedKeyword = keyword?.Trim();
 
-        var accounts = await accountQuery
-            .OrderByDescending(x => x.CreatedAt)
+        if (!string.IsNullOrWhiteSpace(trimmedKeyword))
+        {
+            query = query.Where(x =>
+                x.account.Username.Contains(trimmedKeyword) ||
+                x.account.Email.Contains(trimmedKeyword) ||
+                (x.profile != null && x.profile.FullName.Contains(trimmedKeyword)));
+        }
+
+        var totalRecords = await query.CountAsync();
+
+        var pageItems = await query
+            .OrderByDescending(x => x.account.CreatedAt)
             .Skip((page - 1) * pageSize)
             .Take(pageSize)
             .ToListAsync();
 
-        var accountIds = accounts
-            .Select(x => x.Id)
-            .ToList();
-
-        var profiles = await repoProfile
-            .Query()
-            .AsNoTracking()
-            .Where(x => accountIds.Contains(x.AccountId))
-            .ToListAsync();
-
-        var items = accounts.Select(account =>
+        var items = pageItems.Select(x =>
         {
-            var profile = profiles.FirstOrDefault(x =>
-                x.AccountId == account.Id);
+            var account = x.account;
+            var profile = x.profile;
 
             return new UserProfileResponseDto
             {
@@ -98,37 +99,56 @@ public class ProfileService : IProfileService
         };
     }
 
-    public async Task<BaseTableResponse<MyProfileResponseDto>> GetAllAgentProfilesAsync(int page, int pageSize)
+    public async Task<BaseTableResponse<MyProfileResponseDto>> GetAllAgentProfilesAsync(int page, int pageSize, string? keyword = null, bool? isActive = null)
     {
         var repoAccount = _unitOfWork.GetRepository<Account>();
         var repoProfile = _unitOfWork.GetRepository<AccountProfile>();
         var repoBank = _unitOfWork.GetRepository<BankAccount>();
         var repoStore = _unitOfWork.GetRepository<Store>();
 
-        var accountQuery = repoAccount
-            .Query()
-            .AsNoTracking()
-            .Where(x =>
-                !x.IsDeleted &&
-                x.Role == "Agent");
+        var query =
+            from account in repoAccount.Query().AsNoTracking()
+            where !account.IsDeleted && account.Role == "Agent"
+            join profile in repoProfile.Query().AsNoTracking()
+                on account.Id equals profile.AccountId into profileGroup
+            from profile in profileGroup.DefaultIfEmpty()
+            select new { account, profile };
 
-        var totalRecords = await accountQuery.CountAsync();
+        var trimmedKeyword = keyword?.Trim();
 
-        var accounts = await accountQuery
-            .OrderByDescending(x => x.CreatedAt)
+        if (!string.IsNullOrWhiteSpace(trimmedKeyword))
+        {
+            query = query.Where(x =>
+                x.account.Username.Contains(trimmedKeyword) ||
+                x.account.Email.Contains(trimmedKeyword) ||
+                (x.profile != null && x.profile.FullName.Contains(trimmedKeyword)));
+        }
+
+        if (isActive.HasValue)
+        {
+            query = query.Where(x => x.account.IsActive == isActive.Value);
+        }
+
+        var totalRecords = await query.CountAsync();
+
+        var pageItems = await query
+            .OrderByDescending(x => x.account.CreatedAt)
             .Skip((page - 1) * pageSize)
             .Take(pageSize)
             .ToListAsync();
+
+        var accounts = pageItems
+            .Select(x => x.account)
+            .ToList();
 
         var accountIds = accounts
             .Select(x => x.Id)
             .ToList();
 
-        var profiles = await repoProfile
-            .Query()
-            .AsNoTracking()
-            .Where(x => accountIds.Contains(x.AccountId))
-            .ToListAsync();
+        var profiles = pageItems
+            .Where(x => x.profile != null)
+            .Select(x => x.profile!)
+            .ToList();
 
         var bankAccounts = await repoBank
             .Query()

@@ -1,5 +1,6 @@
 using FoodEmolite.Application.DTOs.Promotion;
 using FoodEmolite.Application.DTOs.Realtime;
+using FoodEmolite.Application.ExternalService.Interfaces;
 using FoodEmolite.Application.Helpers;
 using FoodEmolite.Application.Interfaces;
 using FoodEmolite.Domain.Entities;
@@ -18,11 +19,16 @@ public class PromotionService : IPromotionService
 
     private readonly IUnitOfWork _unitOfWork;
     private readonly IRealtimeNotificationService _realtimeNotificationService;
+    private readonly ICloudinaryService _cloudinaryService;
 
-    public PromotionService(IUnitOfWork unitOfWork, IRealtimeNotificationService realtimeNotificationService)
+    public PromotionService(
+        IUnitOfWork unitOfWork,
+        IRealtimeNotificationService realtimeNotificationService,
+        ICloudinaryService cloudinaryService)
     {
         _unitOfWork = unitOfWork;
         _realtimeNotificationService = realtimeNotificationService;
+        _cloudinaryService = cloudinaryService;
     }
 
     public async Task<BaseTableResponse<PromotionResponseDto>> GetByStoreRefCodeAsync(long currentUserId, BaseSearchRequest<PromotionSearchRequest> request)
@@ -773,7 +779,13 @@ public class PromotionService : IPromotionService
             .ToListAsync();
 
         string FoodName(long storeFoodId) => storeFoods.FirstOrDefault(x => x.Id == storeFoodId)?.FoodName ?? "";
-        string? Thumbnail(long storeFoodId) => storeFoods.FirstOrDefault(x => x.Id == storeFoodId)?.ThumbnailUrl;
+        string? Thumbnail(long storeFoodId)
+        {
+            var thumbnailUrl = storeFoods.FirstOrDefault(x => x.Id == storeFoodId)?.ThumbnailUrl;
+            return !string.IsNullOrWhiteSpace(thumbnailUrl)
+                ? _cloudinaryService.BuildImageUrl(thumbnailUrl)
+                : null;
+        }
         decimal OriginalPrice(long storeFoodId) => storeFoods.FirstOrDefault(x => x.Id == storeFoodId)?.Price ?? 0;
 
         return promotions.Select(promotion => new PromotionResponseDto

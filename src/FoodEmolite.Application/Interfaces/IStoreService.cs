@@ -20,7 +20,9 @@ public interface IStoreService
 
     Task<BaseTableResponse<StoreResponseDto>> GetAllAsync(
         int page,
-        int pageSize);
+        int pageSize,
+        string? keyword = null,
+        bool? isActive = null);
 
     Task<BaseTableResponse<StoreResponseDto>> GetByOwnerRefCodeAsync(
         string ownerRefCode,
