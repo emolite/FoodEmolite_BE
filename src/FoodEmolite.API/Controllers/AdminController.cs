@@ -67,6 +67,13 @@ public class AdminController : ControllerBase
         return Ok(result);
     }
 
+    [HttpGet("stores")]
+    public async Task<IActionResult> GetAllStores([FromQuery] int page = 1, [FromQuery] int pageSize = 10)
+    {
+        var result = await _storeService.GetAllAsync(page, pageSize);
+        return Ok(result);
+    }
+
     [HttpGet("stores/{id}")]
     public async Task<IActionResult> GetStoreDetail(long id)
     {
