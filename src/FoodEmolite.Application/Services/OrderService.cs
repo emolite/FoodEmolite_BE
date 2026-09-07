@@ -94,17 +94,22 @@ public class OrderService : IOrderService
         if (promotionContext is null)
             return BaseResponse<CreateOrderResponseDto>.Fail(promoCodeError ?? "Không tải được thông tin khuyến mãi");
 
+        var (storeWideDiscountOverrides, storeWideDiscountError) = await ValidateSelectedStoreWideDiscountsAsync(
+            promotionContext, request.SelectedStoreWideDiscounts, foods, currentUserId, null);
+
+        if (storeWideDiscountError != null)
+            return BaseResponse<CreateOrderResponseDto>.Fail(storeWideDiscountError);
+
+        promotionContext.StoreWideDiscountOverrides = storeWideDiscountOverrides;
+
         decimal totalAmount = 0;
 
         foreach (var item in request.Items)
         {
             var food = foods.First(x => x.Id == item.StoreFoodId);
-
             var optionAmount = item.Options?.Sum(x => x.AdditionalPrice) ?? 0;
-            var unitPrice = GetPromotionalPrice(food, promotionContext) + optionAmount;
-            var totalPrice = unitPrice * item.Quantity;
 
-            totalAmount += totalPrice;
+            totalAmount += ComputeLineTotal(food, item.Quantity, optionAmount, promotionContext);
         }
 
         var totalQuantity = request.Items.Sum(x => x.Quantity);
@@ -155,7 +160,7 @@ public class OrderService : IOrderService
             StoreRefCode = request.StoreRefCode,
             TotalAmount = totalAmount,
             OrderStatus = "PENDING",
-            PaymentStatus = "UNPAID",
+            PaymentStatus = totalAmount <= 0 ? "PAID" : "UNPAID",
             Note = request.Note,
             CreatedAt = DateTimeHelper.VnNow,
             CreatedBy = currentUserId
@@ -168,43 +173,8 @@ public class OrderService : IOrderService
         {
             var food = foods.First(x => x.Id == item.StoreFoodId);
 
-            var optionAmount = item.Options?.Sum(x => x.AdditionalPrice) ?? 0;
-            var unitPrice = GetPromotionalPrice(food, promotionContext) + optionAmount;
-            var totalPrice = unitPrice * item.Quantity;
-
-            var orderItem = new OrderItem
-            {
-                RefCode = refCode,
-                OrderId = order.Id,
-                StoreFoodId = food.Id,
-                Quantity = item.Quantity,
-                UnitPrice = unitPrice,
-                TotalPrice = totalPrice,
-                CreatedAt = DateTimeHelper.VnNow,
-                CreatedBy = currentUserId
-            };
-
-            await repoOrderItem.AddAsync(orderItem);
-            await _unitOfWork.SaveChangesAsync();
-
-            if (item.Options != null && item.Options.Any())
-            {
-                foreach (var option in item.Options)
-                {
-                    await repoOrderItemOption.AddAsync(new OrderItemOption
-                    {
-                        RefCode = refCode,
-                        OrderItemId = orderItem.Id,
-                        OptionGroupId = option.OptionGroupId,
-                        OptionGroupName = option.OptionGroupName,
-                        OptionId = option.OptionId,
-                        OptionName = option.OptionName,
-                        AdditionalPrice = option.AdditionalPrice,
-                        CreatedAt = DateTimeHelper.VnNow,
-                        CreatedBy = currentUserId
-                    });
-                }
-            }
+            await AddOrderItemsForLineAsync(
+                repoOrderItem, repoOrderItemOption, refCode, order.Id, food, item.Quantity, item.Options, promotionContext, currentUserId);
         }
 
         foreach (var gift in selectedGifts)
@@ -240,6 +210,8 @@ public class OrderService : IOrderService
         await _unitOfWork.SaveChangesAsync();
 
         await BroadcastFoodQuantitiesAsync(request.StoreRefCode, foods.Concat(giftFoods));
+
+        await SavePromotionRedemptionsAsync(request.SelectedStoreWideDiscounts, promotionContext, order.Id, currentUserId, null);
 
         var customerDisplayName = await GetCustomerDisplayNameAsync(currentUserId);
 
@@ -316,22 +288,37 @@ public class OrderService : IOrderService
                 return BaseResponse<CreateOrderResponseDto>.Fail($"Món \"{food.FoodName}\" không đủ số lượng");
         }
 
+        // Lấy trước Customer (nếu có) theo deviceId để dùng kiểm tra đã dùng khuyến mãi
+        // "áp dụng toàn bộ sản phẩm" (ApplyToAllProducts) hay chưa — khách vãng lai mới (customer =
+        // null) coi như chưa từng dùng, sẽ được tạo record Customer bên dưới sau khi đơn được duyệt.
+        Customer customer = null;
+
+        if (!string.IsNullOrWhiteSpace(request.DeviceId))
+        {
+            customer = await repoCustomer.FirstOrDefaultAsync(x => x.DeviceId == request.DeviceId);
+        }
+
         var (promotionContext, promoCodeError) = await LoadPromotionContextAsync(request.StoreRefCode, request.PromoCode);
 
         if (promotionContext is null)
             return BaseResponse<CreateOrderResponseDto>.Fail(promoCodeError ?? "Không tải được thông tin khuyến mãi");
+
+        var (storeWideDiscountOverrides, storeWideDiscountError) = await ValidateSelectedStoreWideDiscountsAsync(
+            promotionContext, request.SelectedStoreWideDiscounts, foods, null, customer?.Id);
+
+        if (storeWideDiscountError != null)
+            return BaseResponse<CreateOrderResponseDto>.Fail(storeWideDiscountError);
+
+        promotionContext.StoreWideDiscountOverrides = storeWideDiscountOverrides;
 
         decimal totalAmount = 0;
 
         foreach (var item in request.Items)
         {
             var food = foods.First(x => x.Id == item.StoreFoodId);
-
             var optionAmount = item.Options?.Sum(x => x.AdditionalPrice) ?? 0;
-            var unitPrice = GetPromotionalPrice(food, promotionContext) + optionAmount;
-            var totalPrice = unitPrice * item.Quantity;
 
-            totalAmount += totalPrice;
+            totalAmount += ComputeLineTotal(food, item.Quantity, optionAmount, promotionContext);
         }
 
         var totalQuantity = request.Items.Sum(x => x.Quantity);
@@ -374,13 +361,6 @@ public class OrderService : IOrderService
 
         await _unitOfWork.SaveChangesAsync();
 
-        Customer customer = null;
-
-        if (!string.IsNullOrWhiteSpace(request.DeviceId))
-        {
-            customer = await repoCustomer.FirstOrDefaultAsync(x => x.DeviceId == request.DeviceId);
-        }
-
         if (customer is null)
         {
             customer = new Customer
@@ -414,7 +394,7 @@ public class OrderService : IOrderService
             StoreRefCode = request.StoreRefCode,
             TotalAmount = totalAmount,
             OrderStatus = "PENDING",
-            PaymentStatus = "UNPAID",
+            PaymentStatus = totalAmount <= 0 ? "PAID" : "UNPAID",
             Note = request.Note,
             CreatedAt = DateTimeHelper.VnNow,
             CreatedBy = null,
@@ -428,43 +408,8 @@ public class OrderService : IOrderService
         {
             var food = foods.First(x => x.Id == item.StoreFoodId);
 
-            var optionAmount = item.Options?.Sum(x => x.AdditionalPrice) ?? 0;
-            var unitPrice = GetPromotionalPrice(food, promotionContext) + optionAmount;
-            var totalPrice = unitPrice * item.Quantity;
-
-            var orderItem = new OrderItem
-            {
-                RefCode = refCode,
-                OrderId = order.Id,
-                StoreFoodId = food.Id,
-                Quantity = item.Quantity,
-                UnitPrice = unitPrice,
-                TotalPrice = totalPrice,
-                CreatedAt = DateTimeHelper.VnNow,
-                CreatedBy = null
-            };
-
-            await repoOrderItem.AddAsync(orderItem);
-            await _unitOfWork.SaveChangesAsync();
-
-            if (item.Options != null && item.Options.Any())
-            {
-                foreach (var option in item.Options)
-                {
-                    await repoOrderItemOption.AddAsync(new OrderItemOption
-                    {
-                        RefCode = refCode,
-                        OrderItemId = orderItem.Id,
-                        OptionGroupId = option.OptionGroupId,
-                        OptionGroupName = option.OptionGroupName,
-                        OptionId = option.OptionId,
-                        OptionName = option.OptionName,
-                        AdditionalPrice = option.AdditionalPrice,
-                        CreatedAt = DateTimeHelper.VnNow,
-                        CreatedBy = null
-                    });
-                }
-            }
+            await AddOrderItemsForLineAsync(
+                repoOrderItem, repoOrderItemOption, refCode, order.Id, food, item.Quantity, item.Options, promotionContext, null);
         }
 
         foreach (var gift in selectedGifts)
@@ -500,6 +445,9 @@ public class OrderService : IOrderService
         await _unitOfWork.SaveChangesAsync();
 
         await BroadcastFoodQuantitiesAsync(request.StoreRefCode, foods.Concat(giftFoods));
+
+        await SavePromotionRedemptionsAsync(request.SelectedStoreWideDiscounts, promotionContext, order.Id, null, customer.Id);
+
         await BroadcastNewOrderAsync(order, customer.CustomerName);
 
         await _activityLogService.LogAsync(
@@ -1325,16 +1273,25 @@ public class OrderService : IOrderService
         public PromotionPricingContext(
             Dictionary<long, decimal> fixedPriceMap,
             Dictionary<long, PromotionDiscountItemResponseDto> discountMap,
-            List<PromotionResponseDto> giftPromotions)
+            List<PromotionResponseDto> giftPromotions,
+            List<PromotionResponseDto> storeWideDiscountPromotions)
         {
             FixedPriceMap = fixedPriceMap;
             DiscountMap = discountMap;
             GiftPromotions = giftPromotions;
+            StoreWideDiscountPromotions = storeWideDiscountPromotions;
         }
 
         public Dictionary<long, decimal> FixedPriceMap { get; }
         public Dictionary<long, PromotionDiscountItemResponseDto> DiscountMap { get; }
         public List<PromotionResponseDto> GiftPromotions { get; }
+
+        // PRODUCT_DISCOUNT dạng ApplyToAllProducts = true (khách tự chọn 1 món nhận giảm giá)
+        public List<PromotionResponseDto> StoreWideDiscountPromotions { get; }
+
+        // StoreFoodId -> giá đã giảm, được điền bởi ValidateSelectedStoreWideDiscountsAsync
+        // trước khi tính giá từng dòng đơn hàng.
+        public Dictionary<long, decimal> StoreWideDiscountOverrides { get; set; } = new();
     }
 
     /// <summary>
@@ -1375,10 +1332,19 @@ public class OrderService : IOrderService
             .Where(p => p.PromotionType == "BUY_X_GET_Y")
             .ToList();
 
-        return (new PromotionPricingContext(fixedPriceMap, discountMap, giftPromotions), null);
+        var storeWideDiscountPromotions = promotions
+            .Where(p => p.PromotionType == "PRODUCT_DISCOUNT" && p.ApplyToAllProducts)
+            .ToList();
+
+        return (new PromotionPricingContext(fixedPriceMap, discountMap, giftPromotions, storeWideDiscountPromotions), null);
     }
 
-    private static decimal GetPromotionalPrice(StoreFood food, PromotionPricingContext context)
+    /// <summary>
+    /// Giá của món theo các promotion FIXED_PRICE / PRODUCT_DISCOUNT (chọn sẵn danh sách món) —
+    /// KHÔNG bao gồm giảm giá "toàn bộ sản phẩm" (ApplyToAllProducts), vì loại đó chỉ giảm cho đúng
+    /// 1 đơn vị của món khách chọn (xem <see cref="ComputeLineTotal"/>), không áp cho cả dòng.
+    /// </summary>
+    private static decimal GetBasePrice(StoreFood food, PromotionPricingContext context)
     {
         if (context.FixedPriceMap.TryGetValue(food.Id, out var fixedPrice))
             return fixedPrice;
@@ -1399,6 +1365,21 @@ public class OrderService : IOrderService
         }
 
         return food.Price;
+    }
+
+    /// <summary>
+    /// Tổng tiền của 1 dòng đơn hàng (1 món x số lượng). Nếu món này là món khách chọn để nhận giảm
+    /// giá "toàn bộ sản phẩm", CHỈ 1 đơn vị được tính giá đã giảm — phần còn lại (nếu số lượng > 1)
+    /// vẫn tính giá bình thường, vì chương trình chỉ cho giảm đúng 1 sản phẩm/lần dùng.
+    /// </summary>
+    private static decimal ComputeLineTotal(StoreFood food, int quantity, decimal optionAmount, PromotionPricingContext context)
+    {
+        var basePrice = GetBasePrice(food, context);
+
+        if (context.StoreWideDiscountOverrides.TryGetValue(food.Id, out var discountedUnitPrice))
+            return basePrice * (quantity - 1) + discountedUnitPrice + optionAmount * quantity;
+
+        return (basePrice + optionAmount) * quantity;
     }
 
     /// <summary>
@@ -1445,6 +1426,196 @@ public class OrderService : IOrderService
         }
 
         return (gifts, null);
+    }
+
+    /// <summary>
+    /// Validate món khách chọn để nhận giảm giá cho các promotion PRODUCT_DISCOUNT dạng
+    /// "áp dụng toàn bộ sản phẩm" (ApplyToAllProducts): món phải nằm trong đơn hàng, promotion còn
+    /// hiệu lực, và khách (theo tài khoản đăng nhập hoặc theo Customer/deviceId với khách vãng lai)
+    /// chưa từng dùng promotion này trước đó — mỗi khách chỉ được dùng 1 lần.
+    /// </summary>
+    private async Task<(Dictionary<long, decimal> Overrides, string? Error)> ValidateSelectedStoreWideDiscountsAsync(
+        PromotionPricingContext context,
+        List<SelectedStoreWideDiscountRequestDto>? selected,
+        List<StoreFood> foods,
+        long? customerAccountId,
+        long? customerId)
+    {
+        var overrides = new Dictionary<long, decimal>();
+
+        if (selected is null || selected.Count == 0)
+            return (overrides, null);
+
+        if (selected.Select(x => x.PromotionId).Distinct().Count() != selected.Count)
+            return (overrides, "Chỉ được chọn 1 sản phẩm cho mỗi chương trình giảm giá");
+
+        // Chương trình chỉ xét cho khách đã tồn tại trong hệ thống (đã đăng nhập, hoặc khách vãng lai
+        // đã có record Customer từ trước — tức đã từng đặt hàng). Khách vãng lai hoàn toàn mới (chưa
+        // từng có Customer nào ứng với deviceId) không đủ điều kiện — nếu không, ai cũng chỉ cần xoá
+        // deviceId/dùng thiết bị khác để "reset" lượt dùng, phá vỡ giới hạn 1 lần/khách.
+        if (customerAccountId is null && customerId is null)
+            return (overrides, "Chương trình chỉ áp dụng cho khách hàng đã từng đặt hàng hoặc đã đăng nhập");
+
+        var repoRedemption = _unitOfWork.GetRepository<PromotionRedemption>();
+
+        foreach (var item in selected)
+        {
+            var promotion = context.StoreWideDiscountPromotions.FirstOrDefault(p => p.Id == item.PromotionId);
+
+            if (promotion is null)
+                return (overrides, "Chương trình giảm giá không còn hiệu lực");
+
+            var food = foods.FirstOrDefault(f => f.Id == item.StoreFoodId);
+
+            if (food is null)
+                return (overrides, "Sản phẩm được chọn giảm giá phải nằm trong đơn hàng");
+
+            var alreadyRedeemed = await repoRedemption.AnyAsync(x =>
+                x.PromotionId == promotion.Id &&
+                ((customerAccountId != null && x.CustomerAccountId == customerAccountId) ||
+                 (customerId != null && x.CustomerId == customerId)));
+
+            if (alreadyRedeemed)
+                return (overrides, $"Bạn đã sử dụng chương trình \"{promotion.Name}\" rồi");
+
+            var discountAmount = promotion.DiscountType == "PERCENT"
+                ? food.Price * (promotion.DiscountValue ?? 0) / 100m
+                : (promotion.DiscountValue ?? 0);
+
+            if (promotion.DiscountType == "PERCENT" && promotion.MaxDiscountAmount.HasValue)
+                discountAmount = Math.Min(discountAmount, promotion.MaxDiscountAmount.Value);
+
+            overrides[food.Id] = Math.Max(food.Price - discountAmount, 0);
+        }
+
+        return (overrides, null);
+    }
+
+    private async Task SavePromotionRedemptionsAsync(
+        List<SelectedStoreWideDiscountRequestDto>? selected,
+        PromotionPricingContext context,
+        long orderId,
+        long? customerAccountId,
+        long? customerId)
+    {
+        if (selected is null || selected.Count == 0)
+            return;
+
+        var repoRedemption = _unitOfWork.GetRepository<PromotionRedemption>();
+        var now = DateTimeHelper.VnNow;
+
+        foreach (var item in selected)
+        {
+            if (!context.StoreWideDiscountOverrides.ContainsKey(item.StoreFoodId))
+                continue;
+
+            await repoRedemption.AddAsync(new PromotionRedemption
+            {
+                PromotionId = item.PromotionId,
+                StoreFoodId = item.StoreFoodId,
+                OrderId = orderId,
+                CustomerAccountId = customerAccountId,
+                CustomerId = customerId,
+                CreatedAt = now,
+                CreatedBy = customerAccountId
+            });
+        }
+
+        await _unitOfWork.SaveChangesAsync();
+    }
+
+    /// <summary>
+    /// Tạo OrderItem cho 1 dòng đơn hàng. Nếu món này được chọn nhận giảm giá "toàn bộ sản phẩm" và
+    /// số lượng > 1, tách thành 2 dòng OrderItem: 1 dòng số lượng 1 ở giá đã giảm, phần còn lại ở giá
+    /// bình thường — vì chương trình chỉ giảm đúng 1 sản phẩm, không nhân theo số lượng.
+    /// </summary>
+    private async Task AddOrderItemsForLineAsync(
+        IRepository<OrderItem> repoOrderItem,
+        IRepository<OrderItemOption> repoOrderItemOption,
+        string refCode,
+        long orderId,
+        StoreFood food,
+        int quantity,
+        List<CreateOrderItemOptionRequestDto>? options,
+        PromotionPricingContext context,
+        long? currentUserId)
+    {
+        var optionAmount = options?.Sum(x => x.AdditionalPrice) ?? 0;
+        var basePrice = GetBasePrice(food, context);
+
+        if (context.StoreWideDiscountOverrides.TryGetValue(food.Id, out var discountedUnitPrice))
+        {
+            var discountedLineUnitPrice = discountedUnitPrice + optionAmount;
+
+            await AddSingleOrderItemAsync(
+                repoOrderItem, repoOrderItemOption, refCode, orderId, food.Id,
+                1, discountedLineUnitPrice, discountedLineUnitPrice, options, currentUserId);
+
+            if (quantity > 1)
+            {
+                var remainingQuantity = quantity - 1;
+                var remainingUnitPrice = basePrice + optionAmount;
+
+                await AddSingleOrderItemAsync(
+                    repoOrderItem, repoOrderItemOption, refCode, orderId, food.Id,
+                    remainingQuantity, remainingUnitPrice, remainingUnitPrice * remainingQuantity, options, currentUserId);
+            }
+        }
+        else
+        {
+            var unitPrice = basePrice + optionAmount;
+
+            await AddSingleOrderItemAsync(
+                repoOrderItem, repoOrderItemOption, refCode, orderId, food.Id,
+                quantity, unitPrice, unitPrice * quantity, options, currentUserId);
+        }
+    }
+
+    private async Task AddSingleOrderItemAsync(
+        IRepository<OrderItem> repoOrderItem,
+        IRepository<OrderItemOption> repoOrderItemOption,
+        string refCode,
+        long orderId,
+        long storeFoodId,
+        int quantity,
+        decimal unitPrice,
+        decimal totalPrice,
+        List<CreateOrderItemOptionRequestDto>? options,
+        long? currentUserId)
+    {
+        var orderItem = new OrderItem
+        {
+            RefCode = refCode,
+            OrderId = orderId,
+            StoreFoodId = storeFoodId,
+            Quantity = quantity,
+            UnitPrice = unitPrice,
+            TotalPrice = totalPrice,
+            CreatedAt = DateTimeHelper.VnNow,
+            CreatedBy = currentUserId
+        };
+
+        await repoOrderItem.AddAsync(orderItem);
+        await _unitOfWork.SaveChangesAsync();
+
+        if (options != null && options.Any())
+        {
+            foreach (var option in options)
+            {
+                await repoOrderItemOption.AddAsync(new OrderItemOption
+                {
+                    RefCode = refCode,
+                    OrderItemId = orderItem.Id,
+                    OptionGroupId = option.OptionGroupId,
+                    OptionGroupName = option.OptionGroupName,
+                    OptionId = option.OptionId,
+                    OptionName = option.OptionName,
+                    AdditionalPrice = option.AdditionalPrice,
+                    CreatedAt = DateTimeHelper.VnNow,
+                    CreatedBy = currentUserId
+                });
+            }
+        }
     }
 
     private async Task BroadcastNewOrderAsync(Order order, string customerName)

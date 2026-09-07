@@ -16,6 +16,14 @@ public interface IPromotionService
     /// </summary>
     Task<BaseResponse<List<PromotionResponseDto>>> GetActiveByStoreRefCodeAsync(string storeRefCode);
 
+    /// <summary>
+    /// Khách (đã đăng nhập qua <paramref name="currentUserId"/>, hoặc khách vãng lai qua
+    /// <paramref name="deviceId"/>) có đủ điều kiện dùng chương trình giảm giá "toàn bộ sản phẩm"
+    /// đang ACTIVE của cửa hàng hay không — dùng để trang khách hàng chỉ hiện UI chọn giảm giá khi
+    /// khách thực sự dùng được (đã từng đặt hàng/đã đăng nhập, và chưa dùng chương trình này).
+    /// </summary>
+    Task<BaseResponse<bool>> CheckStoreWideDiscountEligibilityAsync(string storeRefCode, long? currentUserId, string? deviceId);
+
     Task<BaseResponse<string>> CreateAsync(long currentUserId, string refCode, CreatePromotionRequestDto request);
 
     /// <summary>

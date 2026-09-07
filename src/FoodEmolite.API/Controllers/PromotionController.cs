@@ -43,6 +43,15 @@ public class PromotionController : BaseApiController
         return Ok(result);
     }
 
+    [AllowAnonymous]
+    [HttpGet("store/{storeRefCode}/store-wide-discount-eligibility")]
+    public async Task<IActionResult> CheckStoreWideDiscountEligibility(string storeRefCode, [FromQuery] string? deviceId)
+    {
+        var result = await _promotionService.CheckStoreWideDiscountEligibilityAsync(storeRefCode, CurrentUserId, deviceId);
+
+        return Ok(result);
+    }
+
     [HttpPost]
     public async Task<IActionResult> Create([FromBody] CreatePromotionRequestDto request)
     {

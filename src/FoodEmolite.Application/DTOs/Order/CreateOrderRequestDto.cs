@@ -10,12 +10,23 @@
 
         public List<SelectedGiftRequestDto> SelectedGifts { get; set; } = new();
 
+        // Món khách chọn để nhận giảm giá cho các promotion PRODUCT_DISCOUNT dạng
+        // "áp dụng toàn bộ sản phẩm" (ApplyToAllProducts = true) — mỗi promotion chọn 1 món.
+        public List<SelectedStoreWideDiscountRequestDto> SelectedStoreWideDiscounts { get; set; } = new();
+
         // Mã khuyến mãi khách nhập (không bắt buộc) — chỉ những promotion có promotion_code
         // mới cần mã này để được áp dụng; promotion không có mã sẽ tự áp dụng như bình thường.
         public string? PromoCode { get; set; }
     }
 
     public class SelectedGiftRequestDto
+    {
+        public long PromotionId { get; set; }
+
+        public long StoreFoodId { get; set; }
+    }
+
+    public class SelectedStoreWideDiscountRequestDto
     {
         public long PromotionId { get; set; }
 

@@ -141,6 +141,50 @@ public class PromotionService : IPromotionService
         return BaseResponse<List<PromotionResponseDto>>.Success(items);
     }
 
+    public async Task<BaseResponse<bool>> CheckStoreWideDiscountEligibilityAsync(string storeRefCode, long? currentUserId, string? deviceId)
+    {
+        var repoPromotion = _unitOfWork.GetRepository<Promotion>();
+
+        var activeStoreWidePromotionIds = await repoPromotion
+            .Query()
+            .AsNoTracking()
+            .Where(x =>
+                x.StoreRefCode == storeRefCode &&
+                !x.IsDeleted &&
+                x.PromotionType == "PRODUCT_DISCOUNT" &&
+                x.ApplyToAllProducts &&
+                x.Status == PromotionStatusCalculator.Active)
+            .Select(x => x.Id)
+            .ToListAsync();
+
+        if (activeStoreWidePromotionIds.Count == 0)
+            return BaseResponse<bool>.Success(false);
+
+        long? customerId = null;
+
+        if (currentUserId is null)
+        {
+            if (string.IsNullOrWhiteSpace(deviceId))
+                return BaseResponse<bool>.Success(false);
+
+            var customer = await _unitOfWork.GetRepository<Customer>()
+                .FirstOrDefaultAsync(x => x.DeviceId == deviceId);
+
+            if (customer is null)
+                return BaseResponse<bool>.Success(false);
+
+            customerId = customer.Id;
+        }
+
+        var alreadyRedeemed = await _unitOfWork.GetRepository<PromotionRedemption>()
+            .AnyAsync(x =>
+                activeStoreWidePromotionIds.Contains(x.PromotionId) &&
+                ((currentUserId != null && x.CustomerAccountId == currentUserId) ||
+                 (customerId != null && x.CustomerId == customerId)));
+
+        return BaseResponse<bool>.Success(!alreadyRedeemed);
+    }
+
     public async Task<BaseResponse<string>> CreateAsync(long currentUserId, string refCode, CreatePromotionRequestDto request)
     {
         var repoStore = _unitOfWork.GetRepository<Store>();
@@ -181,6 +225,10 @@ public class PromotionService : IPromotionService
             if (conflictFoodName != null)
                 return BaseResponse<string>.Fail($"Món \"{conflictFoodName}\" đã thuộc chương trình khuyến mãi khác đang áp dụng");
 
+            if (request.PromotionType == "PRODUCT_DISCOUNT" && request.ApplyToAllProducts &&
+                await HasActiveStoreWideDiscountAsync(store.RefCode, null))
+                return BaseResponse<string>.Fail("Cửa hàng đã có chương trình giảm giá áp dụng toàn bộ sản phẩm đang hoạt động");
+
             status = PromotionStatusCalculator.ComputeStatus(
                 request.StartDate,
                 request.EndDate,
@@ -192,6 +240,8 @@ public class PromotionService : IPromotionService
             if (status == PromotionStatusCalculator.Ended)
                 return BaseResponse<string>.Fail("Khoảng thời gian áp dụng đã kết thúc");
         }
+
+        var isStoreWideDiscount = request.PromotionType == "PRODUCT_DISCOUNT" && request.ApplyToAllProducts;
 
         var promotion = new Promotion
         {
@@ -210,6 +260,10 @@ public class PromotionService : IPromotionService
             ConditionType = request.ConditionType,
             ConditionMinAmount = request.ConditionType == "MIN_ORDER_AMOUNT" ? request.ConditionMinAmount : null,
             ConditionMinQuantity = request.ConditionType == "MIN_QUANTITY" ? request.ConditionMinQuantity : null,
+            ApplyToAllProducts = isStoreWideDiscount,
+            DiscountType = isStoreWideDiscount ? request.DiscountType : null,
+            DiscountValue = isStoreWideDiscount ? request.DiscountValue : null,
+            MaxDiscountAmount = isStoreWideDiscount && request.DiscountType == "PERCENT" ? request.MaxDiscountAmount : null,
             CreatedAt = now,
             CreatedBy = currentUserId
         };
@@ -274,6 +328,10 @@ public class PromotionService : IPromotionService
             if (conflictFoodName != null)
                 return BaseResponse<string>.Fail($"Món \"{conflictFoodName}\" đã thuộc chương trình khuyến mãi khác đang áp dụng");
 
+            if (request.PromotionType == "PRODUCT_DISCOUNT" && request.ApplyToAllProducts &&
+                await HasActiveStoreWideDiscountAsync(store!.RefCode, promotion.Id))
+                return BaseResponse<string>.Fail("Cửa hàng đã có chương trình giảm giá áp dụng toàn bộ sản phẩm đang hoạt động");
+
             status = PromotionStatusCalculator.ComputeStatus(
                 request.StartDate,
                 request.EndDate,
@@ -285,6 +343,8 @@ public class PromotionService : IPromotionService
             if (status == PromotionStatusCalculator.Ended)
                 return BaseResponse<string>.Fail("Khoảng thời gian áp dụng đã kết thúc");
         }
+
+        var isStoreWideDiscount = request.PromotionType == "PRODUCT_DISCOUNT" && request.ApplyToAllProducts;
 
         promotion.PromotionCode = string.IsNullOrWhiteSpace(request.PromotionCode) ? null : request.PromotionCode.Trim();
         promotion.PromotionType = request.PromotionType;
@@ -299,6 +359,10 @@ public class PromotionService : IPromotionService
         promotion.ConditionType = request.ConditionType;
         promotion.ConditionMinAmount = request.ConditionType == "MIN_ORDER_AMOUNT" ? request.ConditionMinAmount : null;
         promotion.ConditionMinQuantity = request.ConditionType == "MIN_QUANTITY" ? request.ConditionMinQuantity : null;
+        promotion.ApplyToAllProducts = isStoreWideDiscount;
+        promotion.DiscountType = isStoreWideDiscount ? request.DiscountType : null;
+        promotion.DiscountValue = isStoreWideDiscount ? request.DiscountValue : null;
+        promotion.MaxDiscountAmount = isStoreWideDiscount && request.DiscountType == "PERCENT" ? request.MaxDiscountAmount : null;
         promotion.UpdatedAt = now;
         promotion.UpdatedBy = currentUserId;
 
@@ -368,19 +432,35 @@ public class PromotionService : IPromotionService
                 break;
 
             case "PRODUCT_DISCOUNT":
-                if (request.DiscountItems is null || request.DiscountItems.Count == 0)
-                    return (new List<long>(), "Vui lòng chọn ít nhất 1 món áp dụng giảm giá");
+                if (request.ApplyToAllProducts)
+                {
+                    if (!AllowedDiscountTypes.Contains(request.DiscountType))
+                        return (new List<long>(), "Kiểu giảm giá không hợp lệ");
 
-                if (request.DiscountItems.Any(x => !AllowedDiscountTypes.Contains(x.DiscountType)))
-                    return (new List<long>(), "Kiểu giảm giá không hợp lệ");
+                    if (request.DiscountValue is null || request.DiscountValue <= 0)
+                        return (new List<long>(), "Mức giảm phải lớn hơn 0");
 
-                if (request.DiscountItems.Any(x => x.DiscountValue <= 0))
-                    return (new List<long>(), "Mức giảm phải lớn hơn 0");
+                    if (request.DiscountType == "PERCENT" && request.DiscountValue > 100)
+                        return (new List<long>(), "Giảm theo % không được vượt quá 100%");
 
-                if (request.DiscountItems.Any(x => x.DiscountType == "PERCENT" && x.DiscountValue > 100))
-                    return (new List<long>(), "Giảm theo % không được vượt quá 100%");
+                    storeFoodIds = new List<long>();
+                }
+                else
+                {
+                    if (request.DiscountItems is null || request.DiscountItems.Count == 0)
+                        return (new List<long>(), "Vui lòng chọn ít nhất 1 món áp dụng giảm giá");
 
-                storeFoodIds = request.DiscountItems.Select(x => x.StoreFoodId).Distinct().ToList();
+                    if (request.DiscountItems.Any(x => !AllowedDiscountTypes.Contains(x.DiscountType)))
+                        return (new List<long>(), "Kiểu giảm giá không hợp lệ");
+
+                    if (request.DiscountItems.Any(x => x.DiscountValue <= 0))
+                        return (new List<long>(), "Mức giảm phải lớn hơn 0");
+
+                    if (request.DiscountItems.Any(x => x.DiscountType == "PERCENT" && x.DiscountValue > 100))
+                        return (new List<long>(), "Giảm theo % không được vượt quá 100%");
+
+                    storeFoodIds = request.DiscountItems.Select(x => x.StoreFoodId).Distinct().ToList();
+                }
                 break;
 
             case "BUY_X_GET_Y":
@@ -431,7 +511,7 @@ public class PromotionService : IPromotionService
                 });
             }
         }
-        else if (request.PromotionType == "PRODUCT_DISCOUNT")
+        else if (request.PromotionType == "PRODUCT_DISCOUNT" && !request.ApplyToAllProducts)
         {
             var repoDiscount = _unitOfWork.GetRepository<PromotionDiscountItem>();
 
@@ -519,6 +599,9 @@ public class PromotionService : IPromotionService
 
         if (conflictFoodName != null)
             return BaseResponse<string>.Fail($"Không thể tiếp tục: món \"{conflictFoodName}\" đã thuộc chương trình khác đang áp dụng");
+
+        if (promotion.ApplyToAllProducts && await HasActiveStoreWideDiscountAsync(promotion.StoreRefCode, promotion.Id))
+            return BaseResponse<string>.Fail("Cửa hàng đã có chương trình giảm giá áp dụng toàn bộ sản phẩm đang hoạt động");
 
         var status = PromotionStatusCalculator.ComputeStatus(
             promotion.StartDate,
@@ -657,6 +740,9 @@ public class PromotionService : IPromotionService
                     .ToListAsync();
 
             case "PRODUCT_DISCOUNT":
+                if (promotion.ApplyToAllProducts)
+                    return new List<long>();
+
                 return await _unitOfWork.GetRepository<PromotionDiscountItem>()
                     .Query()
                     .Where(x => x.PromotionId == promotion.Id && !x.IsDeleted)
@@ -727,6 +813,26 @@ public class PromotionService : IPromotionService
             .FirstOrDefaultAsync(x => x.Id == conflictFoodId.Value);
 
         return food?.FoodName ?? "Món đã chọn";
+    }
+
+    /// <summary>
+    /// Kiểm tra cửa hàng đã có chương trình PRODUCT_DISCOUNT dạng "áp dụng toàn bộ sản phẩm"
+    /// (ApplyToAllProducts) đang SCHEDULED/ACTIVE/PAUSED hay chưa — chỉ cho phép tối đa 1 chương
+    /// trình dạng này hoạt động cùng lúc để tránh nhập nhằng khi khách chọn món nhận giảm giá.
+    /// </summary>
+    private async Task<bool> HasActiveStoreWideDiscountAsync(string storeRefCode, long? excludePromotionId)
+    {
+        var repoPromotion = _unitOfWork.GetRepository<Promotion>();
+
+        return await repoPromotion.Query().AnyAsync(x =>
+            x.StoreRefCode == storeRefCode &&
+            !x.IsDeleted &&
+            x.PromotionType == "PRODUCT_DISCOUNT" &&
+            x.ApplyToAllProducts &&
+            (x.Status == PromotionStatusCalculator.Scheduled ||
+             x.Status == PromotionStatusCalculator.Active ||
+             x.Status == PromotionStatusCalculator.Paused) &&
+            (excludePromotionId == null || x.Id != excludePromotionId.Value));
     }
 
     private async Task<(Store? Store, Promotion? Promotion, string? Error)> GetOwnedPromotionAsync(long currentUserId, long id)
@@ -807,6 +913,10 @@ public class PromotionService : IPromotionService
             ConditionType = promotion.ConditionType,
             ConditionMinAmount = promotion.ConditionMinAmount,
             ConditionMinQuantity = promotion.ConditionMinQuantity,
+            ApplyToAllProducts = promotion.ApplyToAllProducts,
+            DiscountType = promotion.DiscountType,
+            DiscountValue = promotion.DiscountValue,
+            MaxDiscountAmount = promotion.MaxDiscountAmount,
             CreatedAt = promotion.CreatedAt,
 
             FixedPriceItems = fixedPriceItems
