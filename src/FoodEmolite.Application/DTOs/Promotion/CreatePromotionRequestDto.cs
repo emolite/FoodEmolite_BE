@@ -27,6 +27,15 @@ public class CreatePromotionRequestDto
     public decimal? ConditionMinAmount { get; set; }
     public int? ConditionMinQuantity { get; set; }
 
+    // Chỉ dùng khi PromotionType = PRODUCT_DISCOUNT: true = áp dụng giảm giá cho toàn bộ sản phẩm
+    // của cửa hàng, khách tự chọn 1 món bất kỳ trong đơn để nhận giảm giá (bỏ qua DiscountItems).
+    public bool ApplyToAllProducts { get; set; }
+
+    // PERCENT | AMOUNT — dùng khi ApplyToAllProducts = true
+    public string? DiscountType { get; set; }
+    public decimal? DiscountValue { get; set; }
+    public decimal? MaxDiscountAmount { get; set; }
+
     public List<PromotionFixedPriceItemRequestDto> FixedPriceItems { get; set; } = new();
     public List<PromotionDiscountItemRequestDto> DiscountItems { get; set; } = new();
     public List<PromotionGiftItemRequestDto> GiftItems { get; set; } = new();

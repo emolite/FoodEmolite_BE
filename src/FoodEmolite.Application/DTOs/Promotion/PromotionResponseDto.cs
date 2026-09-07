@@ -21,6 +21,11 @@ public class PromotionResponseDto
     public decimal? ConditionMinAmount { get; set; }
     public int? ConditionMinQuantity { get; set; }
 
+    public bool ApplyToAllProducts { get; set; }
+    public string? DiscountType { get; set; }
+    public decimal? DiscountValue { get; set; }
+    public decimal? MaxDiscountAmount { get; set; }
+
     public DateTime CreatedAt { get; set; }
 
     public List<PromotionFixedPriceItemResponseDto> FixedPriceItems { get; set; } = new();

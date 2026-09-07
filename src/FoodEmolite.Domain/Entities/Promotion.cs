@@ -54,6 +54,23 @@ public class Promotion : BaseEntity
     [Column("condition_min_quantity")]
     public int? ConditionMinQuantity { get; set; }
 
+    // Chỉ dùng khi PromotionType = PRODUCT_DISCOUNT: true = giảm giá áp dụng cho TOÀN BỘ sản phẩm
+    // của cửa hàng, khách tự chọn 1 món bất kỳ trong đơn để nhận giảm giá lúc thanh toán (thay vì
+    // agent chọn sẵn danh sách món qua PromotionDiscountItem). Mỗi khách chỉ được dùng 1 lần
+    // (xem PromotionRedemption).
+    [Column("apply_to_all_products")]
+    public bool ApplyToAllProducts { get; set; } = false;
+
+    // PERCENT | AMOUNT — dùng khi ApplyToAllProducts = true
+    [Column("discount_type")]
+    public string? DiscountType { get; set; }
+
+    [Column("discount_value")]
+    public decimal? DiscountValue { get; set; }
+
+    [Column("max_discount_amount")]
+    public decimal? MaxDiscountAmount { get; set; }
+
     [Column("is_deleted")]
     public bool IsDeleted { get; set; } = false;
 }
